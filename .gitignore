@@ -1,0 +1,28 @@
+# Backend
+backend/.env
+backend/*.exe
+backend/*.exe~
+backend/*.dll
+backend/*.so
+backend/*.dylib
+backend/*.test
+backend/*.out
+
+# Frontend
+frontend/node_modules
+frontend/dist
+frontend/dist-ssr
+frontend/*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+
