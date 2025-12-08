@@ -30,9 +30,14 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
   const updateItem = useUpdateItem();
   const [overItemId, setOverItemId] = useState<string | null>(null);
   const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
+  const [dragPosition, setDragPosition] = useState<{ itemId: string; isLeftSide: boolean } | null>(null);
   
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px of movement before drag starts
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -42,14 +47,47 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
 
   const handleDragStart = (event: DragStartEvent) => {
     setDraggingItemId(event.active.id as string);
+    // Prevent body scroll during drag
+    document.body.style.overflow = 'hidden';
   };
 
   const handleDragOver = (event: DragOverEvent) => {
-    const { over } = event;
-    if (over) {
+    const { over, activatorEvent } = event;
+    if (over && activatorEvent && 'clientX' in activatorEvent) {
       setOverItemId(over.id as string);
+      
+      // Get the element that's being dragged over - try multiple selectors
+      let overElement = document.querySelector(`[data-id="${over.id}"]`) as HTMLElement;
+      
+      // If not found, try to find it by traversing the DOM from the event target
+      if (!overElement && activatorEvent.target) {
+        const target = (activatorEvent.target as HTMLElement).closest('[data-id]') as HTMLElement;
+        if (target && target.getAttribute('data-id') === over.id) {
+          overElement = target;
+        }
+      }
+      
+      if (overElement) {
+        const rect = overElement.getBoundingClientRect();
+        const mouseX = (activatorEvent as MouseEvent).clientX;
+        const relativeX = mouseX - rect.left;
+        const width = rect.width;
+        const isLeftSide = relativeX < width * 0.3; // Left 30% of the element
+        
+        setDragPosition({
+          itemId: over.id as string,
+          isLeftSide,
+        });
+      } else {
+        // If element not found, default to not left side (move operation)
+        setDragPosition({
+          itemId: over.id as string,
+          isLeftSide: false,
+        });
+      }
     } else {
       setOverItemId(null);
+      setDragPosition(null);
     }
   };
 
@@ -59,6 +97,10 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
     // Reset drag state
     setDraggingItemId(null);
     setOverItemId(null);
+    setDragPosition(null);
+    
+    // Re-enable body scroll
+    document.body.style.overflow = '';
 
     if (!over || active.id === over.id) {
       return;
@@ -81,14 +123,16 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
       return;
     }
 
-    // Check if both items have the same parent (same level)
+    // Determine action based on drag position
+    const isLeftSide = dragPosition?.itemId === overItem.id && dragPosition.isLeftSide;
     const activeParentId = findParentItemId(activeItem.id);
     const overParentId = findParentItemId(overItem.id);
+    const sameLevel = activeParentId === overParentId;
 
-    // If they have the same parent, just reorder (don't change parent)
-    if (activeParentId === overParentId) {
-      // Same level - just reorder by moving after the overItem
-      // The backend will recalculate the order
+    // If dragging to left side AND same level, reorder
+    // Otherwise, move to the over item (make it a subitem)
+    if (isLeftSide && sameLevel) {
+      // Same level and left side - just reorder
       updateItem.mutate({
         id: activeItem.id,
         data: {
@@ -96,7 +140,7 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
         },
       });
     } else {
-      // Different levels - make it a subitem of the over item
+      // Right side OR different level - make it a subitem of the over item
       updateItem.mutate({
         id: activeItem.id,
         data: {
@@ -143,16 +187,20 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
   const overItem = overItemId ? findItemById(items, overItemId) : null;
   const draggingItem = draggingItemId ? findItemById(items, draggingItemId) : null;
   
-  // Determine if it's a reorder (same level) or move to different level
-  const isReorder = draggingItem && overItem && draggingItem.id !== overItem.id
-    ? findParentItemId(draggingItem.id) === findParentItemId(overItem.id)
+  // Determine if it's a reorder based on position and level
+  const isReorder = draggingItem && overItem && draggingItem.id !== overItem.id && dragPosition
+    ? dragPosition.itemId === overItem.id 
+      && dragPosition.isLeftSide 
+      && findParentItemId(draggingItem.id) === findParentItemId(overItem.id)
     : false;
 
   return (
     <>
       {/* Drag overlay message */}
       {draggingItem && overItem && overItem.id !== draggingItem.id && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+        <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 ${
+          isReorder ? 'bg-purple-600' : 'bg-blue-600'
+        }`}>
           {isReorder ? (
             <>
               <span className="font-medium">Reordenar</span>
@@ -189,6 +237,12 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
               const numbering = `${index + 1}`;
               const isOver = overItemId === item.id;
               const isDragging = draggingItemId === item.id;
+              // Check if this is a reorder operation (left side + same level)
+              const isReorderOperation = draggingItem && isOver && !isDragging && dragPosition
+                ? dragPosition.itemId === item.id
+                  && dragPosition.isLeftSide
+                  && findParentItemId(draggingItem.id) === findParentItemId(item.id)
+                : false;
               return (
                 <ItemComponent
                   key={`${item.id}-${index}-${subitemsCount}-${subitemsKey}`}
@@ -197,9 +251,12 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
                   numbering={numbering}
                   onAddSubitem={onAddSubitem}
                   isDragOver={isOver && !isDragging}
+                  isReorder={isReorderOperation}
                   overItemId={overItemId}
                   draggingItemId={draggingItemId}
                   onDoubleClick={onItemDoubleClick}
+                  dragPosition={dragPosition}
+                  findParentItemId={findParentItemId}
                 />
               );
             })}

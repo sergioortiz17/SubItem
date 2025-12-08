@@ -12,16 +12,27 @@ interface ItemComponentProps {
   numbering?: string; // Hierarchical numbering like "1", "1.1", "1.2", etc.
   onAddSubitem: (parentId: string) => void;
   isDragOver?: boolean; // Whether this item is being dragged over
+  isReorder?: boolean; // Whether this is a reorder operation (same level)
   overItemId?: string | null; // ID of item being dragged over (for recursive checking)
   draggingItemId?: string | null; // ID of item being dragged (for recursive checking)
   onDoubleClick?: (itemId: string) => void; // Handler for double click on item card
+  dragPosition?: { itemId: string; isLeftSide: boolean } | null; // Current drag position info
+  findParentItemId?: (itemId: string) => string | null; // Function to find parent item ID
 }
 
 const MAX_DEPTH = 4; // Maximum depth of subitems
 
-export default function ItemComponent({ item, level = 0, numbering = '', onAddSubitem, isDragOver = false, overItemId = null, draggingItemId = null, onDoubleClick }: ItemComponentProps) {
+export default function ItemComponent({ item, level = 0, numbering = '', onAddSubitem, isDragOver = false, isReorder: propIsReorder = false, overItemId = null, draggingItemId = null, onDoubleClick, dragPosition = null, findParentItemId }: ItemComponentProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
+  
+  // Calculate isReorder based on dragPosition if available
+  let isReorder = propIsReorder;
+  if (isDragOver && dragPosition && dragPosition.itemId === item.id && draggingItemId && findParentItemId) {
+    const draggingParentId = findParentItemId(draggingItemId);
+    const itemParentId = findParentItemId(item.id);
+    isReorder = dragPosition.isLeftSide && draggingParentId === itemParentId;
+  }
   
   // Calculate these first so they're available in useEffect
   // Use item.subitems directly to ensure we're using the latest data
@@ -102,10 +113,23 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
     },
   });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
+  // When this item is being dragged, let it follow the cursor (use normal transform)
+  // When other items are being dragged, keep them in place (no transform)
+  const isThisItemDragging = isDragging;
+  const isOtherItemDragging = draggingItemId && draggingItemId !== item.id;
+  
+  const style: React.CSSProperties = {
+    // If this item is being dragged, use the transform to follow cursor
+    // If another item is being dragged, don't apply transform (stay in place)
+    transform: isThisItemDragging 
+      ? CSS.Transform.toString(transform) // Follow cursor
+      : isOtherItemDragging
+        ? undefined // Stay in place when other item is dragged
+        : CSS.Transform.toString(transform), // Normal state
+    transition: isThisItemDragging || isOtherItemDragging ? 'none' : transition,
+    opacity: isThisItemDragging ? 0.7 : 1,
+    pointerEvents: isThisItemDragging ? 'none' : 'auto',
+    zIndex: isThisItemDragging ? 50 : undefined,
   };
 
   const handleStatusChange = (newStatus: 'todo' | 'doing' | 'done') => {
@@ -151,12 +175,15 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
       ref={setNodeRef}
       style={style}
       className={`mb-2 ${isDragging ? 'z-50' : ''}`}
+      data-id={item.id}
     >
       {/* Main Task Card */}
       <div
-        className={`bg-slate-800 border rounded-lg p-4 transition-all ${
+        className={`bg-slate-800 border-2 rounded-lg p-4 transition-all box-border ${
           isDragOver
-            ? 'border-blue-500 border-2 shadow-lg shadow-blue-500/50 bg-blue-900/20'
+            ? isReorder
+              ? 'border-purple-500 shadow-lg shadow-purple-500/50 bg-purple-900/20'
+              : 'border-blue-500 shadow-lg shadow-blue-500/50 bg-blue-900/20'
             : 'border-slate-700 hover:border-slate-600'
         }`}
         onDoubleClick={(e) => {
@@ -316,6 +343,13 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
               const baseNumbering = numbering ? `${numbering}.` : '';
               const subitemNumbering = `${baseNumbering}${subIndex + 1}`;
               const isSubitemOver = overItemId === subitem.id && draggingItemId !== subitem.id;
+              // Calculate isReorder for this subitem: same parent AND left side
+              let isSubitemReorder = false;
+              if (isSubitemOver && dragPosition && dragPosition.itemId === subitem.id && draggingItemId && findParentItemId) {
+                const draggingParentId = findParentItemId(draggingItemId);
+                const subitemParentId = findParentItemId(subitem.id);
+                isSubitemReorder = dragPosition.isLeftSide && draggingParentId === subitemParentId;
+              }
               return (
                 <ItemComponent
                   key={`${subitem.id}-${subIndex}-${subitemsCount}-${subitemsKey}`}
@@ -324,9 +358,12 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
                   numbering={subitemNumbering}
                   onAddSubitem={onAddSubitem}
                   isDragOver={isSubitemOver}
+                  isReorder={isSubitemReorder}
                   overItemId={overItemId}
                   draggingItemId={draggingItemId}
                   onDoubleClick={onDoubleClick}
+                  dragPosition={dragPosition}
+                  findParentItemId={findParentItemId}
                 />
               );
             })}
