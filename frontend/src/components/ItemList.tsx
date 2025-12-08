@@ -81,16 +81,29 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
       return;
     }
 
-    // When dragging over an item, make it a subitem of that item (in level 0)
-    const newItemId = overItem.id; // Make it a subitem of the over item
+    // Check if both items have the same parent (same level)
+    const activeParentId = findParentItemId(activeItem.id);
+    const overParentId = findParentItemId(overItem.id);
 
-    // Update the item - don't send order, let backend calculate it
-    updateItem.mutate({
-      id: activeItem.id,
-      data: {
-        itemId: newItemId, // Moves to level 0 of the target item
-      },
-    });
+    // If they have the same parent, just reorder (don't change parent)
+    if (activeParentId === overParentId) {
+      // Same level - just reorder by moving after the overItem
+      // The backend will recalculate the order
+      updateItem.mutate({
+        id: activeItem.id,
+        data: {
+          order: overItem.order + 1, // Place after the overItem
+        },
+      });
+    } else {
+      // Different levels - make it a subitem of the over item
+      updateItem.mutate({
+        id: activeItem.id,
+        data: {
+          itemId: overItem.id, // Moves to level 0 of the target item
+        },
+      });
+    }
   };
 
   // Check if item is a descendant of potentialAncestor
@@ -108,18 +121,53 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
     return false;
   };
 
+  // Find the parent item ID for a given item
+  const findParentItemId = (itemId: string): string | null => {
+    const findParent = (itemList: ItemResponse[], parentId: string | null = null): string | null => {
+      for (const item of itemList) {
+        if (item.id === itemId) {
+          return parentId; // Found the item, return its parent
+        }
+        if (item.subitems && item.subitems.length > 0) {
+          const found = findParent(item.subitems, item.id);
+          if (found !== null) {
+            return found;
+          }
+        }
+      }
+      return null;
+    };
+    return findParent(items);
+  };
+
   const overItem = overItemId ? findItemById(items, overItemId) : null;
   const draggingItem = draggingItemId ? findItemById(items, draggingItemId) : null;
+  
+  // Determine if it's a reorder (same level) or move to different level
+  const isReorder = draggingItem && overItem && draggingItem.id !== overItem.id
+    ? findParentItemId(draggingItem.id) === findParentItemId(overItem.id)
+    : false;
 
   return (
     <>
       {/* Drag overlay message */}
       {draggingItem && overItem && overItem.id !== draggingItem.id && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
-          <span className="font-medium">Mover</span>
-          <span className="font-bold">"{draggingItem.title}"</span>
-          <span>a</span>
-          <span className="font-bold">"{overItem.title}"</span>
+          {isReorder ? (
+            <>
+              <span className="font-medium">Reordenar</span>
+              <span className="font-bold">"{draggingItem.title}"</span>
+              <span>después de</span>
+              <span className="font-bold">"{overItem.title}"</span>
+            </>
+          ) : (
+            <>
+              <span className="font-medium">Mover</span>
+              <span className="font-bold">"{draggingItem.title}"</span>
+              <span>a</span>
+              <span className="font-bold">"{overItem.title}"</span>
+            </>
+          )}
         </div>
       )}
 
