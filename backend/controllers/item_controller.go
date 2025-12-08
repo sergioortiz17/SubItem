@@ -347,10 +347,12 @@ func DeleteItem(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Item deleted successfully"})
 }
 
-// ImportItems imports items from JSON (flat list)
+// ImportItems imports items and levels from JSON
+// Supports both formats: with levels (new format) and without levels (old format, for backward compatibility)
 func ImportItems(c *fiber.Ctx) error {
 	var data struct {
-		Items []models.Item `json:"items"`
+		Items  []models.Item  `json:"items"`
+		Levels []models.Level `json:"levels,omitempty"` // Optional: for backward compatibility
 	}
 
 	if err := c.BodyParser(&data); err != nil {
@@ -365,9 +367,124 @@ func ImportItems(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	// Import items (flat list)
+	// Separate root items from subitems
+	var rootItems []models.Item
+	var subitems []models.Item
 	for _, item := range data.Items {
-		// Generate UUID if not provided
+		if item.LevelID == nil {
+			rootItems = append(rootItems, item)
+		} else {
+			subitems = append(subitems, item)
+		}
+	}
+
+	// If levels are provided, import them first (but they need items to exist first)
+	// So we'll import levels after items
+	var levelsToImport []models.Level
+	if len(data.Levels) > 0 {
+		levelsToImport = data.Levels
+	} else {
+		// Backward compatibility: no levels provided, create them automatically
+		// Group items by levelId to find which items need levels
+		levelIdToItems := make(map[string][]models.Item)
+		for _, item := range subitems {
+			if item.LevelID != nil {
+				levelIdToItems[*item.LevelID] = append(levelIdToItems[*item.LevelID], item)
+			}
+		}
+
+		// For each unique levelId, create a level
+		// We'll assign it to root items in order
+		rootItemIndex := 0
+		for levelId, itemsInLevel := range levelIdToItems {
+			if len(itemsInLevel) > 0 {
+				// Find a root item to assign this level to
+				var parentItemID string
+				if rootItemIndex < len(rootItems) {
+					parentItemID = rootItems[rootItemIndex].ID
+					rootItemIndex++
+				} else if len(rootItems) > 0 {
+					// Reuse first root item if we run out
+					parentItemID = rootItems[0].ID
+				} else {
+					// No root items, we'll create a dummy one later
+					// For now, skip this level - we'll handle it after creating dummy root
+					continue
+				}
+
+				// Create the level
+				newLevel := models.Level{
+					ID:       levelId,
+					ItemID:   parentItemID,
+					LevelNum: 0,
+					Order:    0,
+				}
+				levelsToImport = append(levelsToImport, newLevel)
+			}
+		}
+
+		// If we have subitems but no root items, create a dummy root
+		if len(rootItems) == 0 && len(subitems) > 0 {
+			dummyRoot := models.Item{
+				ID:          uuid.New().String(),
+				Title:       "Imported Root",
+				Description: "Auto-created root for imported subitems",
+				Status:      "todo",
+				LevelID:     nil,
+				Order:       0,
+			}
+			rootItems = append(rootItems, dummyRoot)
+			
+			// Create levels for any remaining levelIds
+			levelIdToItems = make(map[string][]models.Item)
+			for _, item := range subitems {
+				if item.LevelID != nil {
+					levelIdToItems[*item.LevelID] = append(levelIdToItems[*item.LevelID], item)
+				}
+			}
+			
+			// Check which levelIds don't have levels yet
+			existingLevelIds := make(map[string]bool)
+			for _, level := range levelsToImport {
+				existingLevelIds[level.ID] = true
+			}
+			
+			for levelId, itemsInLevel := range levelIdToItems {
+				if !existingLevelIds[levelId] && len(itemsInLevel) > 0 {
+					newLevel := models.Level{
+						ID:       levelId,
+						ItemID:   dummyRoot.ID,
+						LevelNum: 0,
+						Order:    0,
+					}
+					levelsToImport = append(levelsToImport, newLevel)
+				}
+			}
+		}
+	}
+
+	// Import root items first
+	for _, item := range rootItems {
+		if item.ID == "" {
+			item.ID = uuid.New().String()
+		}
+		if err := database.DB.Create(&item).Error; err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "Failed to import root item: " + err.Error()})
+		}
+	}
+
+	// Import levels (they reference root items which now exist)
+	for _, level := range levelsToImport {
+		if level.ID == "" {
+			level.ID = uuid.New().String()
+		}
+		if err := database.DB.Create(&level).Error; err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "Failed to import level: " + err.Error()})
+		}
+	}
+
+	// Now import all subitems (they reference levels which now exist)
+	for _, item := range subitems {
 		if item.ID == "" {
 			item.ID = uuid.New().String()
 		}
@@ -379,7 +496,7 @@ func ImportItems(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Items imported successfully"})
 }
 
-// ExportItems exports all items as JSON (flat list)
+// ExportItems exports all items and levels as JSON
 func ExportItems(c *fiber.Ctx) error {
 	var items []models.Item
 	result := database.DB.Order("\"order\" ASC").Find(&items)
@@ -387,6 +504,15 @@ func ExportItems(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": result.Error.Error()})
 	}
 
-	return c.JSON(fiber.Map{"items": items})
+	var levels []models.Level
+	levelResult := database.DB.Order("level_num ASC").Order("\"order\" ASC").Find(&levels)
+	if levelResult.Error != nil {
+		return c.Status(500).JSON(fiber.Map{"error": levelResult.Error.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"items":  items,
+		"levels": levels,
+	})
 }
 
