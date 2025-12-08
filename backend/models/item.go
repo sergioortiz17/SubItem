@@ -38,7 +38,10 @@ type ItemResponse struct {
 
 // BuildTree builds a hierarchical tree structure from items and levels
 // Items with LevelID = null are root tasks
-// Items with LevelID point to a level, and levels belong to root tasks
+// Items with LevelID point to a level, and levels belong to items (which can be root items or subitems)
+// This function handles nested subitems recursively up to MAX_DEPTH levels
+const MAX_DEPTH = 4
+
 func BuildTree(items []Item, levels []Level) []ItemResponse {
 	if len(items) == 0 {
 		return []ItemResponse{}
@@ -48,9 +51,8 @@ func BuildTree(items []Item, levels []Level) []ItemResponse {
 	itemMap := make(map[string]*ItemResponse)
 	levelMap := make(map[string]*Level) // level ID -> Level
 	levelsByItemID := make(map[string][]*Level) // item ID -> []Level (levels belonging to this item)
-	var rootItems []ItemResponse
 
-	// Index levels by their item ID
+	// Index levels by their item ID and by level ID
 	for i := range levels {
 		level := &levels[i]
 		levelMap[level.ID] = level
@@ -86,32 +88,62 @@ func BuildTree(items []Item, levels []Level) []ItemResponse {
 		itemMap[item.ID] = itemResp
 	}
 
-	// Second pass: build the tree structure using levels
-	// Items with LevelID belong to a level, and levels belong to root items
-	for i := range items {
-		item := items[i]
-		if item.LevelID != nil {
-			// This item belongs to a level
-			if level, exists := levelMap[*item.LevelID]; exists {
-				// Find the root item that owns this level
-				if rootItem, exists := itemMap[level.ItemID]; exists {
-					// Add this item as a subitem of the root item
-					rootItem.Subitems = append(rootItem.Subitems, *itemMap[item.ID])
+	// Second pass: build the tree structure recursively
+	// Items with LevelID belong to a level, and levels belong to items (which can be root items or subitems)
+	// We need to build this recursively to handle nested subitems
+	var rootItems []ItemResponse
+	
+	// Helper function to recursively build subitems for an item
+	var buildSubitems func(itemID string, depth int) []ItemResponse
+	buildSubitems = func(itemID string, depth int) []ItemResponse {
+		if depth >= MAX_DEPTH {
+			return []ItemResponse{} // Stop at max depth
+		}
+		
+		// Find all levels that belong to this item
+		itemLevels, hasLevels := levelsByItemID[itemID]
+		if !hasLevels || len(itemLevels) == 0 {
+			return []ItemResponse{}
+		}
+		
+		var subitems []ItemResponse
+		
+		// For each level belonging to this item, find all items in that level
+		for _, level := range itemLevels {
+			// Find all items that belong to this level
+			for i := range items {
+				item := items[i]
+				if item.LevelID != nil && *item.LevelID == level.ID {
+					// This item belongs to this level
+					subitemResp := *itemMap[item.ID]
+					// Recursively build subitems for this subitem
+					subitemResp.Subitems = buildSubitems(item.ID, depth+1)
+					subitems = append(subitems, subitemResp)
 				}
 			}
 		}
+		
+		// Sort subitems by order
+		if len(subitems) > 1 {
+			sortItems(&subitems)
+		}
+		
+		return subitems
 	}
 
-	// Third pass: add root items (items with LevelID = null) to the result
+	// Third pass: add root items (items with LevelID = null) and build their subitems
 	for i := range items {
 		item := items[i]
 		if item.LevelID == nil {
 			// Root item - add to root list
-			rootItems = append(rootItems, *itemMap[item.ID])
+			rootItemResp := *itemMap[item.ID]
+			// Recursively build subitems starting at depth 0
+			rootItemResp.Subitems = buildSubitems(item.ID, 0)
+			rootItems = append(rootItems, rootItemResp)
 		}
 	}
 
-	// Sort by order (recursively)
+	// Sort root items by order
 	sortItems(&rootItems)
 	return rootItems
 }
@@ -173,4 +205,5 @@ func (i *ItemResponse) CalculateProgress() (completed int, total int, percentage
 	}
 	return
 }
+
 

@@ -9,10 +9,13 @@ import { expandedItems } from '../utils/expandedState';
 interface ItemComponentProps {
   item: ItemResponse;
   level?: number;
+  numbering?: string; // Hierarchical numbering like "1", "1.1", "1.2", etc.
   onAddSubitem: (parentId: string) => void;
 }
 
-export default function ItemComponent({ item, level = 0, onAddSubitem }: ItemComponentProps) {
+const MAX_DEPTH = 4; // Maximum depth of subitems
+
+export default function ItemComponent({ item, level = 0, numbering = '', onAddSubitem }: ItemComponentProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
   
@@ -120,6 +123,14 @@ export default function ItemComponent({ item, level = 0, onAddSubitem }: ItemCom
     }
   };
 
+  const handleAddSubitem = () => {
+    if (level >= MAX_DEPTH - 1) {
+      alert(`No se pueden agregar más de ${MAX_DEPTH} niveles de profundidad`);
+      return;
+    }
+    onAddSubitem(item.id);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'done':
@@ -196,6 +207,11 @@ export default function ItemComponent({ item, level = 0, onAddSubitem }: ItemCom
             ) : (
               <div className="flex items-center gap-3 flex-wrap w-full">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {numbering && (
+                    <span className="text-slate-500 font-mono text-sm flex-shrink-0">
+                      {numbering}.
+                    </span>
+                  )}
                   <h3
                     className="text-white font-medium cursor-pointer hover:text-blue-400"
                     onDoubleClick={() => setIsEditing(true)}
@@ -247,8 +263,10 @@ export default function ItemComponent({ item, level = 0, onAddSubitem }: ItemCom
             {/* Actions */}
             <div className="flex items-center gap-2 mt-2">
               <button
-                onClick={() => onAddSubitem(item.id)}
-                className="text-xs text-slate-400 hover:text-blue-400"
+                onClick={handleAddSubitem}
+                disabled={level >= MAX_DEPTH - 1}
+                className="text-xs text-slate-400 hover:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={level >= MAX_DEPTH - 1 ? `Máximo ${MAX_DEPTH} niveles permitidos` : 'Agregar subitem'}
               >
                 + Subitem
               </button>
@@ -270,23 +288,32 @@ export default function ItemComponent({ item, level = 0, onAddSubitem }: ItemCom
       </div>
 
       {/* Subitems Container - Always positioned directly below the main task card */}
-      {hasSubitems && isExpanded && subitems.length > 0 && (
+      {hasSubitems && isExpanded && subitems.length > 0 && level < MAX_DEPTH - 1 && (
         <div className="mt-2" style={{ marginLeft: `${(level + 1) * 16}px` }}>
           <div className="border-l-2 border-slate-700 pl-4 space-y-2">
             {subitems.map((subitem, subIndex) => {
               // Use a stable key based on subitem ID and its subitems count
               const subitemsKey = subitem.subitems?.map(s => s.id).sort().join(',') || '';
               const subitemsCount = subitem.subitems?.length || 0;
+              // Generate numbering for this subitem (e.g., "1.1", "1.2", "1.1.1")
+              const baseNumbering = numbering ? `${numbering}.` : '';
+              const subitemNumbering = `${baseNumbering}${subIndex + 1}`;
               return (
                 <ItemComponent
                   key={`${subitem.id}-${subIndex}-${subitemsCount}-${subitemsKey}`}
                   item={subitem}
                   level={level + 1}
+                  numbering={subitemNumbering}
                   onAddSubitem={onAddSubitem}
                 />
               );
             })}
           </div>
+        </div>
+      )}
+      {level >= MAX_DEPTH - 1 && hasSubitems && (
+        <div className="mt-2 ml-4 text-xs text-slate-500 italic">
+          (Máximo {MAX_DEPTH} niveles alcanzado - {subitems.length} subitem{subitems.length !== 1 ? 's' : ''} oculto{subitems.length !== 1 ? 's' : ''})
         </div>
       )}
     </div>

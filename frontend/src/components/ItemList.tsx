@@ -98,11 +98,14 @@ export default function ItemList({ items, onAddSubitem }: ItemListProps) {
             const subitemsCount = item.subitems?.length || 0;
             // Use sorted IDs to create a stable key based on subitems
             const subitemsKey = item.subitems?.map(s => s.id).sort().join(',') || '';
+            // Generate numbering for root items (1, 2, 3, etc.)
+            const numbering = `${index + 1}`;
             return (
               <ItemComponent
                 key={`${item.id}-${index}-${subitemsCount}-${subitemsKey}`}
                 item={item}
                 level={0}
+                numbering={numbering}
                 onAddSubitem={onAddSubitem}
               />
             );

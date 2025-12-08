@@ -9,6 +9,67 @@ import (
 	"gorm.io/gorm"
 )
 
+const MAX_DEPTH = 4 // Maximum depth of subitems
+
+// calculateItemDepth calculates the maximum depth of an item in the tree
+// Returns the depth (0 = root, 1 = first level subitem, etc.)
+func calculateItemDepth(itemID string) (int, error) {
+	var allItems []models.Item
+	var allLevels []models.Level
+	
+	if err := database.DB.Find(&allItems).Error; err != nil {
+		return 0, err
+	}
+	if err := database.DB.Find(&allLevels).Error; err != nil {
+		return 0, err
+	}
+	
+	// Build a map of levels by item ID
+	levelsByItemID := make(map[string][]models.Level)
+	for _, level := range allLevels {
+		levelsByItemID[level.ItemID] = append(levelsByItemID[level.ItemID], level)
+	}
+	
+	// Build a map of items by level ID
+	itemsByLevelID := make(map[string][]models.Item)
+	for _, item := range allItems {
+		if item.LevelID != nil {
+			itemsByLevelID[*item.LevelID] = append(itemsByLevelID[*item.LevelID], item)
+		}
+	}
+	
+	// Recursive function to calculate depth
+	var calculateDepth func(id string, visited map[string]bool) int
+	calculateDepth = func(id string, visited map[string]bool) int {
+		if visited[id] {
+			return 0 // Cycle detected, return 0
+		}
+		visited[id] = true
+		
+		maxDepth := 0
+		// Find all levels belonging to this item
+		levels, hasLevels := levelsByItemID[id]
+		if hasLevels {
+			for _, level := range levels {
+				// Find all items in this level
+				items, hasItems := itemsByLevelID[level.ID]
+				if hasItems {
+					for _, item := range items {
+						depth := calculateDepth(item.ID, visited) + 1
+						if depth > maxDepth {
+							maxDepth = depth
+						}
+					}
+				}
+			}
+		}
+		return maxDepth
+	}
+	
+	visited := make(map[string]bool)
+	return calculateDepth(itemID, visited), nil
+}
+
 // GetItems returns all items in hierarchical structure
 func GetItems(c *fiber.Ctx) error {
 	var items []models.Item
@@ -71,6 +132,15 @@ func CreateItem(c *fiber.Ctx) error {
 
 	// Handle level assignment
 	if req.ItemID != nil {
+		// Check depth before creating subitem
+		depth, err := calculateItemDepth(*req.ItemID)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "Failed to calculate depth: " + err.Error()})
+		}
+		if depth >= MAX_DEPTH-1 {
+			return c.Status(400).JSON(fiber.Map{"error": "Maximum depth reached. Cannot create more than 4 levels of subitems"})
+		}
+		
 		// Creating a subitem - find or create level 0 for this item
 		var level models.Level
 		result := database.DB.Where("item_id = ? AND level_num = 0", *req.ItemID).First(&level)
@@ -91,6 +161,21 @@ func CreateItem(c *fiber.Ctx) error {
 		item.LevelID = &level.ID
 	} else if req.LevelID != nil {
 		// Creating a subitem in a specific level
+		// Find the level to get its item ID
+		var level models.Level
+		if err := database.DB.First(&level, "id = ?", *req.LevelID).Error; err != nil {
+			return c.Status(404).JSON(fiber.Map{"error": "Level not found"})
+		}
+		
+		// Check depth before creating subitem
+		depth, err := calculateItemDepth(level.ItemID)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "Failed to calculate depth: " + err.Error()})
+		}
+		if depth >= MAX_DEPTH-1 {
+			return c.Status(400).JSON(fiber.Map{"error": "Maximum depth reached. Cannot create more than 4 levels of subitems"})
+		}
+		
 		item.LevelID = req.LevelID
 	}
 	// If neither ItemID nor LevelID is provided, it's a root task (LevelID = nil)
