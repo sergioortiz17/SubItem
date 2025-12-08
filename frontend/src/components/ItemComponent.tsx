@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ItemResponse } from '../types/item';
@@ -37,15 +37,14 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
   const { direct, total } = countSubitems(item);
   const { completed, total: totalItems, percentage } = calculateProgress(item);
   
-  // Initialize expanded state from global set, default to true for new items
+  // Initialize expanded state from global set, default to false (user must manually expand)
   const [isExpanded, setIsExpandedState] = useState(() => {
-    // If item is already in the set, use that state, otherwise default to true
+    // If item is already in the set, use that state, otherwise default to false
     if (expandedItems.has(item.id)) {
       return true;
     }
-    // Default to true for new items
-    expandedItems.add(item.id);
-    return true;
+    // Default to false - user must manually expand
+    return false;
   });
   
   // Update expanded state and persist it globally
@@ -68,23 +67,7 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
     return () => window.removeEventListener('collapse-all', handleCollapseAll);
   }, [item.id]);
 
-  // Track previous subitems count to detect when new subitems are added
-  const prevSubitemsCountRef = useRef(subitems.length);
-  
-  // Only auto-expand when subitems are ADDED (not when user manually collapses)
-  useEffect(() => {
-    const currentCount = subitems.length;
-    const prevCount = prevSubitemsCountRef.current;
-    
-    // Only auto-expand if subitems were added (count increased) and item is not already expanded
-    if (hasSubitems && currentCount > prevCount && currentCount > 0 && !isExpanded) {
-      expandedItems.add(item.id);
-      setIsExpandedState(true);
-    }
-    
-    // Update the ref for next comparison
-    prevSubitemsCountRef.current = currentCount;
-  }, [item.id, hasSubitems, subitems.length, isExpanded]);
+  // No auto-expand - user must manually expand items
   
   const updateItem = useUpdateItem();
   const deleteItem = useDeleteItem();
