@@ -434,20 +434,6 @@ export default function DebugTree({ items, selectedItemId, onSelectItem, width, 
             </div>
           </div>
         )}
-
-        <div className="mb-4 flex-1 min-h-0 flex flex-col">
-          <h3 className="text-sm font-semibold text-slate-300 mb-2 flex-shrink-0">Raw JSON (from API)</h3>
-          <pre className="text-xs bg-slate-800 p-2 rounded border border-slate-700 overflow-auto flex-1">
-            {JSON.stringify(items, null, 2)}
-          </pre>
-        </div>
-
-        <div className="mb-4 flex-1 min-h-0 flex flex-col">
-          <h3 className="text-sm font-semibold text-slate-300 mb-2 flex-shrink-0">Local State (optimistic)</h3>
-          <pre className="text-xs bg-slate-800 p-2 rounded border border-slate-700 overflow-auto flex-1">
-            {JSON.stringify(localItems, null, 2)}
-          </pre>
-        </div>
       </div>
     </>
   );
