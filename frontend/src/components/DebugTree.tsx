@@ -16,7 +16,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ItemResponse } from '../types/item';
-import { useUpdateItem } from '../hooks/useItems';
+import { useUpdateItem } from '../infrastructure/di/container';
 import { moveItem, findItemPath } from '../utils/nestedUpdate';
 
 interface DebugTreeProps {

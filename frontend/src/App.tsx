@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useItems, useCreateItem } from './hooks/useItems';
+import { useItems, useCreateItem } from './infrastructure/di/container';
 import ItemList from './components/ItemList';
 import ImportExport from './components/ImportExport';
 import DebugTree from './components/DebugTree';
 import ItemDetailView from './components/ItemDetailView';
-import { findItemById } from './utils/itemUtils';
+import { ItemTreeService } from './domain/services/ItemTreeService';
+import { ItemResponse } from './types/item';
 
 function App() {
   const { data, isLoading, error } = useItems();
@@ -63,7 +64,9 @@ function App() {
   const items = data?.items || [];
 
   // Find the item for detail view
-  const detailViewItem = detailViewItemId ? findItemById(items, detailViewItemId) : null;
+  const detailViewItem = detailViewItemId 
+    ? ItemTreeService.findById<ItemResponse>(items as ItemResponse[], detailViewItemId) 
+    : null;
 
   // If in detail view, show only that item
   if (detailViewItem) {

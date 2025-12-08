@@ -1,8 +1,8 @@
 import { useRef, useState, useEffect } from 'react';
-import { useImportItems, useItems, useDeleteItem } from '../hooks/useItems';
-import { itemService } from '../services/api';
+import { useImportItems, useItems, useDeleteItem } from '../infrastructure/di/container';
+import { itemRepository } from '../infrastructure/di/container';
 import { Item } from '../types/item';
-import { flattenItems } from '../utils/itemUtils';
+import { ItemTreeService } from '../domain/services/ItemTreeService';
 import { expandedItems } from '../utils/expandedState';
 
 export default function ImportExport() {
@@ -15,7 +15,7 @@ export default function ImportExport() {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const data = await itemService.export();
+      const data = await itemRepository.export();
       const dataStr = JSON.stringify(data, null, 2);
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(dataBlob);
@@ -80,7 +80,7 @@ export default function ImportExport() {
     const items = itemsData?.items || [];
 
     // Delete all items sequentially to avoid race conditions
-    const allItems = flattenItems(items);
+    const allItems = ItemTreeService.flatten(items);
     for (const item of allItems) {
       await deleteItem.mutateAsync(item.id);
     }

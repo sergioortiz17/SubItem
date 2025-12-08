@@ -3,7 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ItemResponse } from '../types/item';
 import { countSubitems, calculateProgress } from '../utils/itemUtils';
-import { useUpdateItem, useDeleteItem } from '../hooks/useItems';
+import { useUpdateItem, useDeleteItem } from '../infrastructure/di/container';
 import { expandedItems } from '../utils/expandedState';
 
 interface ItemComponentProps {
