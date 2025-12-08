@@ -1,58 +1,84 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { TaskResponse } from '../types/task';
-import { countSubitems, calculateProgress } from '../utils/taskUtils';
-import { useUpdateTask, useDeleteTask } from '../hooks/useTasks';
+import { ItemResponse } from '../types/item';
+import { countSubitems, calculateProgress } from '../utils/itemUtils';
+import { useUpdateItem, useDeleteItem } from '../hooks/useItems';
+import { expandedItems } from '../utils/expandedState';
 
-interface TaskItemProps {
-  task: TaskResponse;
+interface ItemComponentProps {
+  item: ItemResponse;
   level?: number;
   onAddSubitem: (parentId: string) => void;
 }
 
-// Global state to track expanded tasks (shared across all TaskItem instances)
-const expandedTasks = new Set<string>();
-
-export default function TaskItem({ task, level = 0, onAddSubitem }: TaskItemProps) {
+export default function ItemComponent({ item, level = 0, onAddSubitem }: ItemComponentProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(task.title);
+  const [editTitle, setEditTitle] = useState(item.title);
   
-  // Initialize expanded state from global set, default to true for new tasks
+  // Calculate these first so they're available in useEffect
+  // Use item.subitems directly to ensure we're using the latest data
+  const subitems = item.subitems || [];
+  const hasSubitems = subitems.length > 0;
+  const { direct, total } = countSubitems(item);
+  const { completed, total: totalItems, percentage } = calculateProgress(item);
+  
+  // Initialize expanded state from global set, default to true for new items
   const [isExpanded, setIsExpandedState] = useState(() => {
-    // If task is already in the set, use that state, otherwise default to true
-    if (expandedTasks.has(task.id)) {
+    // If item is already in the set, use that state, otherwise default to true
+    if (expandedItems.has(item.id)) {
       return true;
     }
-    // Default to true for new tasks
-    expandedTasks.add(task.id);
+    // Default to true for new items
+    expandedItems.add(item.id);
     return true;
   });
   
   // Update expanded state and persist it globally
   const setIsExpanded = (value: boolean) => {
     if (value) {
-      expandedTasks.add(task.id);
+      expandedItems.add(item.id);
     } else {
-      expandedTasks.delete(task.id);
+      expandedItems.delete(item.id);
     }
     setIsExpandedState(value);
   };
   
-  // Ensure expanded state is synced with global state when task updates
+  // Listen for collapse-all event
   useEffect(() => {
-    if (expandedTasks.has(task.id) && !isExpanded) {
+    const handleCollapseAll = () => {
+      expandedItems.delete(item.id);
+      setIsExpandedState(false);
+    };
+    window.addEventListener('collapse-all', handleCollapseAll);
+    return () => window.removeEventListener('collapse-all', handleCollapseAll);
+  }, [item.id]);
+
+  // Track previous subitems count to detect when new subitems are added
+  const prevSubitemsCountRef = useRef(subitems.length);
+  
+  // Only auto-expand when subitems are ADDED (not when user manually collapses)
+  useEffect(() => {
+    const currentCount = subitems.length;
+    const prevCount = prevSubitemsCountRef.current;
+    
+    // Only auto-expand if subitems were added (count increased) and item is not already expanded
+    if (hasSubitems && currentCount > prevCount && currentCount > 0 && !isExpanded) {
+      expandedItems.add(item.id);
       setIsExpandedState(true);
     }
-  }, [task.id]);
+    
+    // Update the ref for next comparison
+    prevSubitemsCountRef.current = currentCount;
+  }, [item.id, hasSubitems, subitems.length, isExpanded]);
   
-  const updateTask = useUpdateTask();
-  const deleteTask = useDeleteTask();
+  const updateItem = useUpdateItem();
+  const deleteItem = useDeleteItem();
   
-  // Update edit title when task title changes
+  // Update edit title when item title changes
   useEffect(() => {
-    setEditTitle(task.title);
-  }, [task.title]);
+    setEditTitle(item.title);
+  }, [item.title]);
   
   const {
     attributes,
@@ -62,10 +88,10 @@ export default function TaskItem({ task, level = 0, onAddSubitem }: TaskItemProp
     transition,
     isDragging,
   } = useSortable({
-    id: task.id,
+    id: item.id,
     data: {
-      type: 'task',
-      task,
+      type: 'item',
+      item,
     },
   });
 
@@ -75,18 +101,14 @@ export default function TaskItem({ task, level = 0, onAddSubitem }: TaskItemProp
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const { direct, total } = countSubitems(task);
-  const { completed, total: totalItems, percentage } = calculateProgress(task);
-  const hasSubitems = task.subitems && task.subitems.length > 0;
-
   const handleStatusChange = (newStatus: 'todo' | 'doing' | 'done') => {
-    updateTask.mutate({ id: task.id, data: { status: newStatus } });
+    updateItem.mutate({ id: item.id, data: { status: newStatus } });
   };
 
   const handleSave = () => {
     if (editTitle.trim()) {
-      updateTask.mutate(
-        { id: task.id, data: { title: editTitle.trim() } },
+      updateItem.mutate(
+        { id: item.id, data: { title: editTitle.trim() } },
         { onSuccess: () => setIsEditing(false) }
       );
     }
@@ -94,7 +116,7 @@ export default function TaskItem({ task, level = 0, onAddSubitem }: TaskItemProp
 
   const handleDelete = () => {
     if (window.confirm('¿Eliminar esta tarea y todos sus subitems?')) {
-      deleteTask.mutate(task.id);
+      deleteItem.mutate(item.id);
     }
   };
 
@@ -115,6 +137,7 @@ export default function TaskItem({ task, level = 0, onAddSubitem }: TaskItemProp
       style={style}
       className={`mb-2 ${isDragging ? 'z-50' : ''}`}
     >
+      {/* Main Task Card */}
       <div
         className="bg-slate-800 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors"
       >
@@ -154,13 +177,15 @@ export default function TaskItem({ task, level = 0, onAddSubitem }: TaskItemProp
               <div className="flex items-center gap-2">
                 <input
                   type="text"
+                  id={`edit-title-${item.id}`}
+                  name={`edit-title-${item.id}`}
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
                   onBlur={handleSave}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSave();
                     if (e.key === 'Escape') {
-                      setEditTitle(task.title);
+                      setEditTitle(item.title);
                       setIsEditing(false);
                     }
                   }}
@@ -175,7 +200,7 @@ export default function TaskItem({ task, level = 0, onAddSubitem }: TaskItemProp
                     className="text-white font-medium cursor-pointer hover:text-blue-400"
                     onDoubleClick={() => setIsEditing(true)}
                   >
-                    {task.title}
+                    {item.title}
                   </h3>
                   {hasSubitems && !isExpanded && (
                     <span className="text-xs text-slate-500 italic">
@@ -191,9 +216,11 @@ export default function TaskItem({ task, level = 0, onAddSubitem }: TaskItemProp
                 
                 {/* Status - moved to the right */}
                 <select
-                  value={task.status}
+                  id={`status-${item.id}`}
+                  name={`status-${item.id}`}
+                  value={item.status}
                   onChange={(e) => handleStatusChange(e.target.value as 'todo' | 'doing' | 'done')}
-                  className={`${getStatusColor(task.status)} text-white text-xs px-2 py-1 rounded border-0 cursor-pointer flex-shrink-0`}
+                  className={`${getStatusColor(item.status)} text-white text-xs px-2 py-1 rounded border-0 cursor-pointer flex-shrink-0`}
                 >
                   <option value="todo">Pendiente</option>
                   <option value="doing">En curso</option>
@@ -220,7 +247,7 @@ export default function TaskItem({ task, level = 0, onAddSubitem }: TaskItemProp
             {/* Actions */}
             <div className="flex items-center gap-2 mt-2">
               <button
-                onClick={() => onAddSubitem(task.id)}
+                onClick={() => onAddSubitem(item.id)}
                 className="text-xs text-slate-400 hover:text-blue-400"
               >
                 + Subitem
@@ -242,21 +269,29 @@ export default function TaskItem({ task, level = 0, onAddSubitem }: TaskItemProp
         </div>
       </div>
 
-      {/* Subitems */}
-      {hasSubitems && isExpanded && (
-        <div className="mt-2 ml-4 border-l-2 border-slate-700 pl-4 space-y-2">
-          {task.subitems!.map((subitem) => (
-            <TaskItem
-              key={subitem.id}
-              task={subitem}
-              level={level + 1}
-              onAddSubitem={onAddSubitem}
-            />
-          ))}
+      {/* Subitems Container - Always positioned directly below the main task card */}
+      {hasSubitems && isExpanded && subitems.length > 0 && (
+        <div className="mt-2" style={{ marginLeft: `${(level + 1) * 16}px` }}>
+          <div className="border-l-2 border-slate-700 pl-4 space-y-2">
+            {subitems.map((subitem, subIndex) => {
+              // Use a stable key based on subitem ID and its subitems count
+              const subitemsKey = subitem.subitems?.map(s => s.id).sort().join(',') || '';
+              const subitemsCount = subitem.subitems?.length || 0;
+              return (
+                <ItemComponent
+                  key={`${subitem.id}-${subIndex}-${subitemsCount}-${subitemsKey}`}
+                  item={subitem}
+                  level={level + 1}
+                  onAddSubitem={onAddSubitem}
+                />
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
   );
 }
+
 
 

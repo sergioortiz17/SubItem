@@ -9,15 +9,15 @@ import (
 func SetupRoutes(app *fiber.App) {
 	api := app.Group("/api")
 
-	// Task routes
-	api.Get("/tasks", controllers.GetTasks)
-	api.Post("/tasks", controllers.CreateTask)
-	api.Put("/tasks/:id", controllers.UpdateTask)
-	api.Delete("/tasks/:id", controllers.DeleteTask)
+	// Item routes
+	api.Get("/items", controllers.GetItems)
+	api.Post("/items", controllers.CreateItem)
+	api.Put("/items/:id", controllers.UpdateItem)
+	api.Delete("/items/:id", controllers.DeleteItem)
 
 	// Import/Export routes
-	api.Post("/import", controllers.ImportTasks)
-	api.Get("/export", controllers.ExportTasks)
+	api.Post("/import", controllers.ImportItems)
+	api.Get("/export", controllers.ExportItems)
 }
 
 

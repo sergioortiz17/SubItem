@@ -1,0 +1,307 @@
+package controllers
+
+import (
+	"roadmap-subitem/database"
+	"roadmap-subitem/models"
+
+	"github.com/google/uuid"
+	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
+)
+
+// GetItems returns all items in hierarchical structure
+func GetItems(c *fiber.Ctx) error {
+	var items []models.Item
+	var levels []models.Level
+	
+	// Query all items ordered by level_id (NULL first = root tasks), then by order
+	result := database.DB.
+		Order("CASE WHEN level_id IS NULL THEN 0 ELSE 1 END ASC").
+		Order("\"order\" ASC").
+		Find(&items)
+	
+	if result.Error != nil {
+		return c.Status(500).JSON(fiber.Map{"error": result.Error.Error()})
+	}
+
+	// Query all levels
+	levelResult := database.DB.
+		Order("level_num ASC").
+		Order("\"order\" ASC").
+		Find(&levels)
+	
+	if levelResult.Error != nil {
+		return c.Status(500).JSON(fiber.Map{"error": levelResult.Error.Error()})
+	}
+
+	// Build tree structure using items and levels
+	tree := models.BuildTree(items, levels)
+	return c.JSON(fiber.Map{"items": tree})
+}
+
+// CreateItemRequest represents the request body for creating an item
+type CreateItemRequest struct {
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	Status      string  `json:"status"`
+	ItemID      *string `json:"itemId"`   // If provided, creates subitem in level 0 of this item
+	LevelID     *string `json:"levelId"`  // If provided, creates subitem in this specific level
+}
+
+// CreateItem creates a new item (task or subitem)
+func CreateItem(c *fiber.Ctx) error {
+	var req CreateItemRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	item := models.Item{
+		ID:          uuid.New().String(),
+		Title:       req.Title,
+		Description: req.Description,
+		Status:      req.Status,
+		LevelID:     nil,
+		Order:       0,
+	}
+
+	// Set default status if not provided
+	if item.Status == "" {
+		item.Status = "todo"
+	}
+
+	// Handle level assignment
+	if req.ItemID != nil {
+		// Creating a subitem - find or create level 0 for this item
+		var level models.Level
+		result := database.DB.Where("item_id = ? AND level_num = 0", *req.ItemID).First(&level)
+		if result.Error == gorm.ErrRecordNotFound {
+			// Create level 0 for this item
+			level = models.Level{
+				ID:       uuid.New().String(),
+				ItemID:   *req.ItemID,
+				LevelNum: 0,
+				Order:    0,
+			}
+			if err := database.DB.Create(&level).Error; err != nil {
+				return c.Status(500).JSON(fiber.Map{"error": "Failed to create level: " + err.Error()})
+			}
+		} else if result.Error != nil {
+			return c.Status(500).JSON(fiber.Map{"error": result.Error.Error()})
+		}
+		item.LevelID = &level.ID
+	} else if req.LevelID != nil {
+		// Creating a subitem in a specific level
+		item.LevelID = req.LevelID
+	}
+	// If neither ItemID nor LevelID is provided, it's a root task (LevelID = nil)
+
+	// Get max order for the level (or root if no level)
+	var maxOrder int
+	query := database.DB.Model(&models.Item{})
+	if item.LevelID != nil {
+		query = query.Where("level_id = ?", *item.LevelID)
+	} else {
+		query = query.Where("level_id IS NULL")
+	}
+	query.Select("COALESCE(MAX(\"order\"), -1)").Scan(&maxOrder)
+	item.Order = maxOrder + 1
+
+	result := database.DB.Create(&item)
+	if result.Error != nil {
+		return c.Status(500).JSON(fiber.Map{"error": result.Error.Error()})
+	}
+
+	// Reload the item to ensure we have all fields properly set
+	var createdItem models.Item
+	database.DB.First(&createdItem, "id = ?", item.ID)
+	
+	return c.Status(201).JSON(createdItem)
+}
+
+// UpdateItem updates an item
+func UpdateItem(c *fiber.Ctx) error {
+	id := c.Params("id")
+	var item models.Item
+
+	if err := database.DB.First(&item, "id = ?", id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(404).JSON(fiber.Map{"error": "Item not found"})
+		}
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	// Parse update data into a map to check which fields are actually provided
+	var updateDataMap map[string]interface{}
+	if err := c.BodyParser(&updateDataMap); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	// Update allowed fields only if they are provided
+	if title, ok := updateDataMap["title"].(string); ok && title != "" {
+		item.Title = title
+	}
+	if description, ok := updateDataMap["description"]; ok {
+		if descStr, ok := description.(string); ok {
+			item.Description = descStr
+		}
+	}
+	if status, ok := updateDataMap["status"].(string); ok && status != "" {
+		item.Status = status
+	}
+	
+	// Handle levelId update (moving between levels or to root)
+	levelChanged := false
+	if levelIdRaw, ok := updateDataMap["levelId"]; ok {
+		if levelIdRaw == nil {
+			// Explicitly set to nil (moving to root)
+			if item.LevelID != nil {
+				levelChanged = true
+				item.LevelID = nil
+			}
+		} else if levelIdStr, ok := levelIdRaw.(string); ok {
+			// Set to a specific level
+			if item.LevelID == nil || *item.LevelID != levelIdStr {
+				levelIdPtr := &levelIdStr
+				levelChanged = true
+				item.LevelID = levelIdPtr
+			}
+		}
+	}
+
+	// Handle itemId update (moving to a different item's level 0)
+	if itemIdRaw, ok := updateDataMap["itemId"]; ok {
+		if itemIdStr, ok := itemIdRaw.(string); ok {
+			// Find or create level 0 for this item
+			var level models.Level
+			result := database.DB.Where("item_id = ? AND level_num = 0", itemIdStr).First(&level)
+			if result.Error == gorm.ErrRecordNotFound {
+				// Create level 0 for this item
+				level = models.Level{
+					ID:       uuid.New().String(),
+					ItemID:   itemIdStr,
+					LevelNum: 0,
+					Order:    0,
+				}
+				if err := database.DB.Create(&level).Error; err != nil {
+					return c.Status(500).JSON(fiber.Map{"error": "Failed to create level: " + err.Error()})
+				}
+			} else if result.Error != nil {
+				return c.Status(500).JSON(fiber.Map{"error": result.Error.Error()})
+			}
+			item.LevelID = &level.ID
+			levelChanged = true
+		}
+	}
+
+	// Recalculate order when level changes
+	if levelChanged {
+		var maxOrder int
+		query := database.DB.Model(&models.Item{})
+		if item.LevelID != nil {
+			query = query.Where("level_id = ?", *item.LevelID)
+		} else {
+			query = query.Where("level_id IS NULL")
+		}
+		query.Where("id != ?", item.ID).Select("COALESCE(MAX(\"order\"), -1)").Scan(&maxOrder)
+		item.Order = maxOrder + 1
+	}
+	
+	// Only update order if explicitly provided and different (for drag & drop)
+	if orderRaw, ok := updateDataMap["order"]; ok {
+		if orderFloat, ok := orderRaw.(float64); ok {
+			orderInt := int(orderFloat)
+			if orderInt >= 0 && orderInt != item.Order {
+				item.Order = orderInt
+			}
+		}
+	}
+
+	result := database.DB.Save(&item)
+	if result.Error != nil {
+		return c.Status(500).JSON(fiber.Map{"error": result.Error.Error()})
+	}
+
+	// Reload the item to ensure we have the latest data
+	var updatedItem models.Item
+	database.DB.First(&updatedItem, "id = ?", item.ID)
+	
+	return c.JSON(updatedItem)
+}
+
+// DeleteItem deletes an item and all its descendants recursively
+func DeleteItem(c *fiber.Ctx) error {
+	id := c.Params("id")
+	
+	// Delete all items in levels belonging to this item
+	var levels []models.Level
+	if err := database.DB.Where("item_id = ?", id).Find(&levels).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	// Delete all items in these levels
+	for _, level := range levels {
+		if err := database.DB.Unscoped().Where("level_id = ?", level.ID).Delete(&models.Item{}).Error; err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+		// Delete the level
+		if err := database.DB.Unscoped().Delete(&level).Error; err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+	}
+
+	// Delete the item itself
+	result := database.DB.Unscoped().Delete(&models.Item{}, "id = ?", id)
+	if result.Error != nil {
+		return c.Status(500).JSON(fiber.Map{"error": result.Error.Error()})
+	}
+
+	if result.RowsAffected == 0 {
+		return c.Status(404).JSON(fiber.Map{"error": "Item not found"})
+	}
+
+	return c.JSON(fiber.Map{"message": "Item deleted successfully"})
+}
+
+// ImportItems imports items from JSON (flat list)
+func ImportItems(c *fiber.Ctx) error {
+	var data struct {
+		Items []models.Item `json:"items"`
+	}
+
+	if err := c.BodyParser(&data); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid JSON format"})
+	}
+
+	// Clear existing items and levels (hard delete)
+	if err := database.DB.Unscoped().Exec("DELETE FROM items").Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+	if err := database.DB.Unscoped().Exec("DELETE FROM levels").Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	// Import items (flat list)
+	for _, item := range data.Items {
+		// Generate UUID if not provided
+		if item.ID == "" {
+			item.ID = uuid.New().String()
+		}
+		if err := database.DB.Create(&item).Error; err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "Failed to import item: " + err.Error()})
+		}
+	}
+
+	return c.JSON(fiber.Map{"message": "Items imported successfully"})
+}
+
+// ExportItems exports all items as JSON (flat list)
+func ExportItems(c *fiber.Ctx) error {
+	var items []models.Item
+	result := database.DB.Order("\"order\" ASC").Find(&items)
+	if result.Error != nil {
+		return c.Status(500).JSON(fiber.Map{"error": result.Error.Error()})
+	}
+
+	return c.JSON(fiber.Map{"items": items})
+}
+

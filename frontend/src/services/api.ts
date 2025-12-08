@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { TaskResponse, CreateTaskDto, UpdateTaskDto } from '../types/task';
+import { ItemResponse, CreateItemDto, UpdateItemDto, Item } from '../types/item';
 
 const api = axios.create({
   baseURL: '/api',
@@ -8,31 +8,31 @@ const api = axios.create({
   },
 });
 
-export const taskService = {
-  getAll: async (): Promise<{ tasks: TaskResponse[] }> => {
-    const response = await api.get('/tasks');
+export const itemService = {
+  getAll: async (): Promise<{ items: ItemResponse[] }> => {
+    const response = await api.get('/items');
     return response.data;
   },
 
-  create: async (data: CreateTaskDto): Promise<TaskResponse> => {
-    const response = await api.post('/tasks', data);
+  create: async (data: CreateItemDto): Promise<ItemResponse> => {
+    const response = await api.post('/items', data);
     return response.data;
   },
 
-  update: async (id: string, data: UpdateTaskDto): Promise<TaskResponse> => {
-    const response = await api.put(`/tasks/${id}`, data);
+  update: async (id: string, data: UpdateItemDto): Promise<ItemResponse> => {
+    const response = await api.put(`/items/${id}`, data);
     return response.data;
   },
 
   delete: async (id: string): Promise<void> => {
-    await api.delete(`/tasks/${id}`);
+    await api.delete(`/items/${id}`);
   },
 
-  import: async (data: { tasks: TaskResponse[] }): Promise<void> => {
+  import: async (data: { items: Item[] }): Promise<void> => {
     await api.post('/import', data);
   },
 
-  export: async (): Promise<{ tasks: TaskResponse[] }> => {
+  export: async (): Promise<{ items: Item[] }> => {
     const response = await api.get('/export');
     return response.data;
   },
