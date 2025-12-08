@@ -221,7 +221,7 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
     >
       {/* Main Task Card */}
       <div
-        className={`bg-slate-800 border-2 rounded-lg p-4 transition-all box-border ${
+        className={`bg-slate-800 border-2 rounded-lg p-4 transition-all box-border relative overflow-hidden ${
           isDragOver
             ? isReorder
               ? 'border-purple-500 shadow-lg shadow-purple-500/50 bg-purple-900/20'
@@ -238,6 +238,15 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
           }
         }}
       >
+        {/* Progress Bar at Bottom Border - Only for root items (level 0) */}
+        {level === 0 && totalItems > 1 && (
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-700">
+            <div
+              className="h-full bg-green-400 transition-all duration-300 shadow-[0_0_10px_rgba(74,222,128,0.8)]"
+              style={{ width: `${percentage}%` }}
+            />
+          </div>
+        )}
         <div className="flex items-start gap-3">
           {/* Drag Handle */}
           <div
