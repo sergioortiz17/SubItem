@@ -14,11 +14,12 @@ interface ItemComponentProps {
   isDragOver?: boolean; // Whether this item is being dragged over
   overItemId?: string | null; // ID of item being dragged over (for recursive checking)
   draggingItemId?: string | null; // ID of item being dragged (for recursive checking)
+  onDoubleClick?: (itemId: string) => void; // Handler for double click on item card
 }
 
 const MAX_DEPTH = 4; // Maximum depth of subitems
 
-export default function ItemComponent({ item, level = 0, numbering = '', onAddSubitem, isDragOver = false, overItemId = null, draggingItemId = null }: ItemComponentProps) {
+export default function ItemComponent({ item, level = 0, numbering = '', onAddSubitem, isDragOver = false, overItemId = null, draggingItemId = null, onDoubleClick }: ItemComponentProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
   
@@ -158,6 +159,15 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
             ? 'border-blue-500 border-2 shadow-lg shadow-blue-500/50 bg-blue-900/20'
             : 'border-slate-700 hover:border-slate-600'
         }`}
+        onDoubleClick={(e) => {
+          // Only trigger if double click is on the card itself, not on interactive elements
+          const target = e.target as HTMLElement;
+          const isInteractive = target.closest('button, input, select, a, [role="button"]');
+          if (!isInteractive && onDoubleClick) {
+            e.stopPropagation();
+            onDoubleClick(item.id);
+          }
+        }}
       >
         <div className="flex items-start gap-3">
           {/* Drag Handle */}
@@ -316,6 +326,7 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
                   isDragOver={isSubitemOver}
                   overItemId={overItemId}
                   draggingItemId={draggingItemId}
+                  onDoubleClick={onDoubleClick}
                 />
               );
             })}

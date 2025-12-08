@@ -47,3 +47,16 @@ export const flattenItems = (items: ItemResponse[]): ItemResponse[] => {
   return result;
 };
 
+export const findItemById = (items: ItemResponse[], id: string): ItemResponse | null => {
+  for (const item of items) {
+    if (item.id === id) {
+      return item;
+    }
+    if (item.subitems) {
+      const found = findItemById(item.subitems, id);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+

@@ -3,6 +3,8 @@ import { useItems, useCreateItem } from './hooks/useItems';
 import ItemList from './components/ItemList';
 import ImportExport from './components/ImportExport';
 import DebugTree from './components/DebugTree';
+import ItemDetailView from './components/ItemDetailView';
+import { findItemById } from './utils/itemUtils';
 
 function App() {
   const { data, isLoading, error } = useItems();
@@ -10,6 +12,7 @@ function App() {
   const [newItemTitle, setNewItemTitle] = useState('');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [debugPanelWidth, setDebugPanelWidth] = useState(320); // Default 320px (w-80)
+  const [detailViewItemId, setDetailViewItemId] = useState<string | null>(null);
 
   const handleAddItem = () => {
     if (newItemTitle.trim()) {
@@ -57,9 +60,34 @@ function App() {
 
   const items = data?.items || [];
 
-  // Debug: Log items received (simplified to avoid React error #310)
-  // Removed debug logging to prevent hook order issues
+  // Find the item for detail view
+  const detailViewItem = detailViewItemId ? findItemById(items, detailViewItemId) : null;
 
+  // If in detail view, show only that item
+  if (detailViewItem) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-slate-100 flex">
+        <div className="flex-1 overflow-y-auto">
+          <ItemDetailView
+            item={detailViewItem}
+            onBack={() => setDetailViewItemId(null)}
+            onAddSubitem={handleAddSubitem}
+          />
+        </div>
+
+        {/* Debug Tree Panel */}
+        <DebugTree
+          items={items}
+          selectedItemId={selectedItemId}
+          onSelectItem={setSelectedItemId}
+          width={debugPanelWidth}
+          onWidthChange={setDebugPanelWidth}
+        />
+      </div>
+    );
+  }
+
+  // Normal view
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex">
       <div className="flex-1 overflow-y-auto">
@@ -103,7 +131,11 @@ function App() {
               <p>No hay tareas. Agrega una nueva tarea para comenzar.</p>
             </div>
           ) : (
-            <ItemList items={items} onAddSubitem={handleAddSubitem} />
+            <ItemList
+              items={items}
+              onAddSubitem={handleAddSubitem}
+              onItemDoubleClick={setDetailViewItemId}
+            />
           )}
         </div>
       </div>

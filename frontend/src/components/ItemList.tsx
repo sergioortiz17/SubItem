@@ -23,9 +23,10 @@ import { flattenItems } from '../utils/itemUtils';
 interface ItemListProps {
   items: ItemResponse[];
   onAddSubitem: (parentId: string) => void;
+  onItemDoubleClick?: (itemId: string) => void;
 }
 
-export default function ItemList({ items, onAddSubitem }: ItemListProps) {
+export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: ItemListProps) {
   const updateItem = useUpdateItem();
   const [overItemId, setOverItemId] = useState<string | null>(null);
   const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
@@ -150,6 +151,7 @@ export default function ItemList({ items, onAddSubitem }: ItemListProps) {
                   isDragOver={isOver && !isDragging}
                   overItemId={overItemId}
                   draggingItemId={draggingItemId}
+                  onDoubleClick={onItemDoubleClick}
                 />
               );
             })}
