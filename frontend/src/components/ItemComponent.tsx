@@ -16,13 +16,14 @@ interface ItemComponentProps {
   overItemId?: string | null; // ID of item being dragged over (for recursive checking)
   draggingItemId?: string | null; // ID of item being dragged (for recursive checking)
   onDoubleClick?: (itemId: string) => void; // Handler for double click on item card
-  dragPosition?: { itemId: string; isLeftSide: boolean } | null; // Current drag position info
+  dragPosition?: { itemId: string; isEdge: boolean; isAbove: boolean } | null; // Current drag position info
   findParentItemId?: (itemId: string) => string | null; // Function to find parent item ID
+  allItems?: ItemResponse[]; // All items for finding parent
 }
 
 const MAX_DEPTH = 4; // Maximum depth of subitems
 
-export default function ItemComponent({ item, level = 0, numbering = '', onAddSubitem, isDragOver = false, isReorder: propIsReorder = false, overItemId = null, draggingItemId = null, onDoubleClick, dragPosition = null, findParentItemId }: ItemComponentProps) {
+export default function ItemComponent({ item, level = 0, numbering = '', onAddSubitem, isDragOver = false, isReorder: propIsReorder = false, overItemId = null, draggingItemId = null, onDoubleClick, dragPosition = null, findParentItemId, allItems = [] }: ItemComponentProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
   
@@ -31,7 +32,7 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
   if (isDragOver && dragPosition && dragPosition.itemId === item.id && draggingItemId && findParentItemId) {
     const draggingParentId = findParentItemId(draggingItemId);
     const itemParentId = findParentItemId(item.id);
-    isReorder = dragPosition.isLeftSide && draggingParentId === itemParentId;
+    isReorder = dragPosition.isEdge && draggingParentId === itemParentId;
   }
   
   // Calculate these first so they're available in useEffect
@@ -150,6 +151,69 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
       deleteItem.mutate(item.id);
     }
   };
+
+  // Find parent item by searching recursively in the tree
+  const findParentItem = (): ItemResponse | null => {
+    if (level === 0 || allItems.length === 0) {
+      return null; // Root items have no parent
+    }
+    
+    // Recursively search for the parent item
+    const findParent = (items: ItemResponse[], targetId: string): ItemResponse | null => {
+      for (const it of items) {
+        // Check if this item has the target as a direct subitem
+        if (it.subitems) {
+          for (const subitem of it.subitems) {
+            if (subitem.id === targetId) {
+              return it; // Found parent
+            }
+            // Recursively check nested subitems
+            const found = findParent([subitem], targetId);
+            if (found) return found;
+          }
+        }
+      }
+      return null;
+    };
+    
+    return findParent(allItems, item.id);
+  };
+  
+  const handleLevelUp = () => {
+    const parentItem = findParentItem();
+    if (!parentItem) {
+      // If no parent found, move to root (level 0)
+      updateItem.mutate({
+        id: item.id,
+        data: {
+          levelId: null, // Move to root
+        },
+      });
+    } else {
+      // Move to parent's level
+      // If parent is root, move to root
+      // Otherwise, use parent's levelId
+      if (parentItem.levelId === null) {
+        // Parent is root, move to root
+        updateItem.mutate({
+          id: item.id,
+          data: {
+            levelId: null,
+          },
+        });
+      } else {
+        // Parent has a level, move to parent's level
+        updateItem.mutate({
+          id: item.id,
+          data: {
+            levelId: parentItem.levelId,
+          },
+        });
+      }
+    }
+  };
+  
+  const hasParent = level > 0; // Only show level up if not at root level
 
   const handleAddSubitem = () => {
     if (level >= MAX_DEPTH - 1) {
@@ -314,6 +378,15 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
               >
                 + Subitem
               </button>
+              {hasParent && (
+                <button
+                  onClick={handleLevelUp}
+                  className="text-xs text-slate-400 hover:text-green-400"
+                  title="Mover al mismo nivel que el padre"
+                >
+                  Level Up
+                </button>
+              )}
               <button
                 onClick={() => setIsEditing(true)}
                 className="text-xs text-slate-400 hover:text-blue-400"
@@ -343,12 +416,12 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
               const baseNumbering = numbering ? `${numbering}.` : '';
               const subitemNumbering = `${baseNumbering}${subIndex + 1}`;
               const isSubitemOver = overItemId === subitem.id && draggingItemId !== subitem.id;
-              // Calculate isReorder for this subitem: same parent AND left side
+              // Calculate isReorder for this subitem: same parent AND edge
               let isSubitemReorder = false;
               if (isSubitemOver && dragPosition && dragPosition.itemId === subitem.id && draggingItemId && findParentItemId) {
                 const draggingParentId = findParentItemId(draggingItemId);
                 const subitemParentId = findParentItemId(subitem.id);
-                isSubitemReorder = dragPosition.isLeftSide && draggingParentId === subitemParentId;
+                isSubitemReorder = dragPosition.isEdge && draggingParentId === subitemParentId;
               }
               return (
                 <ItemComponent
@@ -364,6 +437,7 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
                   onDoubleClick={onDoubleClick}
                   dragPosition={dragPosition}
                   findParentItemId={findParentItemId}
+                  allItems={allItems}
                 />
               );
             })}

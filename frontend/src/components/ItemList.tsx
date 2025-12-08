@@ -30,7 +30,7 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
   const updateItem = useUpdateItem();
   const [overItemId, setOverItemId] = useState<string | null>(null);
   const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
-  const [dragPosition, setDragPosition] = useState<{ itemId: string; isLeftSide: boolean } | null>(null);
+  const [dragPosition, setDragPosition] = useState<{ itemId: string; isEdge: boolean; isAbove: boolean } | null>(null);
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -56,33 +56,62 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
     if (over && activatorEvent && 'clientX' in activatorEvent) {
       setOverItemId(over.id as string);
       
-      // Get the element that's being dragged over - try multiple selectors
-      let overElement = document.querySelector(`[data-id="${over.id}"]`) as HTMLElement;
+      // Get the container element with data-id
+      const containerElement = document.querySelector(`[data-id="${over.id}"]`) as HTMLElement;
       
-      // If not found, try to find it by traversing the DOM from the event target
-      if (!overElement && activatorEvent.target) {
-        const target = (activatorEvent.target as HTMLElement).closest('[data-id]') as HTMLElement;
-        if (target && target.getAttribute('data-id') === over.id) {
-          overElement = target;
+      // Find the actual card element (the div with bg-slate-800) inside the container
+      let cardElement: HTMLElement | null = null;
+      
+      if (containerElement) {
+        // Look for the card element (the one with the border and background)
+        cardElement = containerElement.querySelector('.bg-slate-800.border-2') as HTMLElement;
+        
+        // If not found, try to find it by traversing from the event target
+        if (!cardElement && activatorEvent.target) {
+          const target = (activatorEvent.target as HTMLElement).closest('.bg-slate-800.border-2') as HTMLElement;
+          if (target && containerElement.contains(target)) {
+            cardElement = target;
+          }
         }
       }
       
-      if (overElement) {
-        const rect = overElement.getBoundingClientRect();
+      // Fallback: try to find by closest data-id from event target
+      if (!cardElement && activatorEvent.target) {
+        const closestContainer = (activatorEvent.target as HTMLElement).closest('[data-id]') as HTMLElement;
+        if (closestContainer && closestContainer.getAttribute('data-id') === over.id) {
+          cardElement = closestContainer.querySelector('.bg-slate-800.border-2') as HTMLElement;
+        }
+      }
+      
+      if (cardElement) {
+        const rect = cardElement.getBoundingClientRect();
         const mouseX = (activatorEvent as MouseEvent).clientX;
+        const mouseY = (activatorEvent as MouseEvent).clientY;
         const relativeX = mouseX - rect.left;
+        const relativeY = mouseY - rect.top;
         const width = rect.width;
-        const isLeftSide = relativeX < width * 0.3; // Left 30% of the element
+        const height = rect.height;
+        const percentageX = (relativeX / width) * 100;
+        const percentageY = (relativeY / height) * 100;
+        
+        // Borde izquierdo (primeros 25%) o borde derecho (últimos 25%) → reordenar
+        // Medio (25% - 75%) → mover
+        const isEdge = percentageX < 25 || percentageX > 75;
+        
+        // Determine if mouse is above or below the center of the item
+        const isAbove = percentageY < 50;
         
         setDragPosition({
           itemId: over.id as string,
-          isLeftSide,
+          isEdge,
+          isAbove,
         });
       } else {
-        // If element not found, default to not left side (move operation)
+        // If element not found, default to middle (move operation)
         setDragPosition({
           itemId: over.id as string,
-          isLeftSide: false,
+          isEdge: false,
+          isAbove: false,
         });
       }
     } else {
@@ -124,23 +153,37 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
     }
 
     // Determine action based on drag position
-    const isLeftSide = dragPosition?.itemId === overItem.id && dragPosition.isLeftSide;
+    const isEdge = dragPosition?.itemId === overItem.id && dragPosition.isEdge;
+    const isAbove = dragPosition?.itemId === overItem.id && dragPosition.isAbove;
     const activeParentId = findParentItemId(activeItem.id);
     const overParentId = findParentItemId(overItem.id);
     const sameLevel = activeParentId === overParentId;
 
-    // If dragging to left side AND same level, reorder
-    // Otherwise, move to the over item (make it a subitem)
-    if (isLeftSide && sameLevel) {
-      // Same level and left side - just reorder
+    // If dragging to edge (left or right border) AND same level, reorder
+    // If dragging to middle/center, move to the over item (make it a subitem)
+    // This works regardless of whether they're at the same level or not
+    if (isEdge && sameLevel) {
+      // Same level and edge (left or right border) - reorder
+      // Determine the correct order based on direction
+      let newOrder: number;
+      if (isAbove) {
+        // Dragging above center - place before overItem
+        newOrder = overItem.order;
+      } else {
+        // Dragging below center - place after overItem
+        newOrder = overItem.order + 1;
+      }
+      
       updateItem.mutate({
         id: activeItem.id,
         data: {
-          order: overItem.order + 1, // Place after the overItem
+          order: newOrder,
         },
       });
     } else {
-      // Right side OR different level - make it a subitem of the over item
+      // Middle/center - make it a subitem of the over item
+      // The backend will automatically create level 0 if it doesn't exist
+      // This works for same level or different levels
       updateItem.mutate({
         id: activeItem.id,
         data: {
@@ -190,7 +233,7 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
   // Determine if it's a reorder based on position and level
   const isReorder = draggingItem && overItem && draggingItem.id !== overItem.id && dragPosition
     ? dragPosition.itemId === overItem.id 
-      && dragPosition.isLeftSide 
+      && dragPosition.isEdge 
       && findParentItemId(draggingItem.id) === findParentItemId(overItem.id)
     : false;
 
@@ -237,10 +280,10 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
               const numbering = `${index + 1}`;
               const isOver = overItemId === item.id;
               const isDragging = draggingItemId === item.id;
-              // Check if this is a reorder operation (left side + same level)
+              // Check if this is a reorder operation (edge + same level)
               const isReorderOperation = draggingItem && isOver && !isDragging && dragPosition
                 ? dragPosition.itemId === item.id
-                  && dragPosition.isLeftSide
+                  && dragPosition.isEdge
                   && findParentItemId(draggingItem.id) === findParentItemId(item.id)
                 : false;
               return (
@@ -257,6 +300,7 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
                   onDoubleClick={onItemDoubleClick}
                   dragPosition={dragPosition}
                   findParentItemId={findParentItemId}
+                  allItems={items}
                 />
               );
             })}

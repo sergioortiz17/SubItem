@@ -70,6 +70,43 @@ func calculateItemDepth(itemID string) (int, error) {
 	return calculateDepth(itemID, visited), nil
 }
 
+// isDescendantOf checks if potentialDescendant is a descendant of ancestor
+func isDescendantOf(potentialDescendantID, ancestorID string, visited map[string]bool) bool {
+	if visited[potentialDescendantID] {
+		return false // Cycle detected
+	}
+	visited[potentialDescendantID] = true
+	
+	if potentialDescendantID == ancestorID {
+		return true
+	}
+	
+	// Get the item
+	var item models.Item
+	if err := database.DB.First(&item, "id = ?", potentialDescendantID).Error; err != nil {
+		return false
+	}
+	
+	// If this item has no level, it's a root item, so it can't be a descendant
+	if item.LevelID == nil {
+		return false
+	}
+	
+	// Find the level
+	var level models.Level
+	if err := database.DB.First(&level, "id = ?", *item.LevelID).Error; err != nil {
+		return false
+	}
+	
+	// Check if the parent item is the ancestor or a descendant of the ancestor
+	if level.ItemID == ancestorID {
+		return true
+	}
+	
+	// Recursively check parent
+	return isDescendantOf(level.ItemID, ancestorID, visited)
+}
+
 // GetItems returns all items in hierarchical structure
 func GetItems(c *fiber.Ctx) error {
 	var items []models.Item
@@ -256,6 +293,28 @@ func UpdateItem(c *fiber.Ctx) error {
 	// Handle itemId update (moving to a different item's level 0)
 	if itemIdRaw, ok := updateDataMap["itemId"]; ok {
 		if itemIdStr, ok := itemIdRaw.(string); ok {
+			// Prevent moving an item into itself or its descendants
+			// Check if the target item is a descendant of the item being moved
+			var targetItem models.Item
+			if err := database.DB.First(&targetItem, "id = ?", itemIdStr).Error; err != nil {
+				return c.Status(404).JSON(fiber.Map{"error": "Target item not found"})
+			}
+			
+			// Check if target is a descendant (would create a cycle)
+			visited := make(map[string]bool)
+			if isDescendantOf(targetItem.ID, item.ID, visited) {
+				return c.Status(400).JSON(fiber.Map{"error": "Cannot move item into its own descendant"})
+			}
+			
+			// Check depth before moving
+			depth, err := calculateItemDepth(itemIdStr)
+			if err != nil {
+				return c.Status(500).JSON(fiber.Map{"error": "Failed to calculate depth: " + err.Error()})
+			}
+			if depth >= MAX_DEPTH-1 {
+				return c.Status(400).JSON(fiber.Map{"error": "Maximum depth reached. Cannot create more than 4 levels of subitems"})
+			}
+			
 			// Find or create level 0 for this item
 			var level models.Level
 			result := database.DB.Where("item_id = ? AND level_num = 0", itemIdStr).First(&level)
