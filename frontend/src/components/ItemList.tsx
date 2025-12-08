@@ -151,7 +151,7 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick, reord
 
     // If reorder mode is active AND same level, reorder
     // Otherwise, always move to the over item (make it a subitem)
-    if (reorderMode && sameLevel) {
+    if (reorderMode && sameLevel && draggingItem && overItem && draggingItem.id !== overItem.id) {
       // Reorder mode and same level - reorder
       // Determine the correct order based on direction
       let newOrder: number;
@@ -219,9 +219,8 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick, reord
   const draggingItem = draggingItemId ? findItemById(items, draggingItemId) : null;
   
   // Determine if it's a reorder based on reorder mode and level
-  const isReorder = reorderMode && draggingItem && overItem && draggingItem.id !== overItem.id
-    ? findParentItemId(draggingItem.id) === findParentItemId(overItem.id)
-    : false;
+  // In reorder mode, always show purple highlight (to indicate mode is active)
+  const isReorder = reorderMode && draggingItem && overItem && draggingItem.id !== overItem.id;
 
   return (
     <>
@@ -266,10 +265,8 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick, reord
               const numbering = `${index + 1}`;
               const isOver = overItemId === item.id;
               const isDragging = draggingItemId === item.id;
-              // Check if this is a reorder operation (reorder mode + same level)
-              const isReorderOperation = reorderMode && draggingItem && isOver && !isDragging
-                ? findParentItemId(draggingItem.id) === findParentItemId(item.id)
-                : false;
+              // Check if this is a reorder operation (reorder mode active)
+              const isReorderOperation = reorderMode && draggingItem && isOver && !isDragging ? true : false;
               return (
                 <ItemComponent
                   key={`${item.id}-${index}-${subitemsCount}-${subitemsKey}`}

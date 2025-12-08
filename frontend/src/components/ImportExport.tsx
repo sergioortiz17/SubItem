@@ -11,7 +11,6 @@ export default function ImportExport() {
   const importItems = useImportItems();
   const { data: itemsData } = useItems();
   const deleteItem = useDeleteItem();
-  const [history, setHistory] = useState<Item[][]>([]);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -52,12 +51,6 @@ export default function ImportExport() {
       }
 
       if (window.confirm('¿Importar estos items? Esto reemplazará todos los items existentes.')) {
-        // Save current state to history before import
-        if (itemsData?.items && itemsData.items.length > 0) {
-          // Flatten items for history
-          const flatItems = flattenItems(itemsData.items);
-          setHistory(prev => [...prev, flatItems]);
-        }
         importItems.mutate(data, {
           onSuccess: () => {
             alert('Items importados exitosamente');
@@ -85,39 +78,11 @@ export default function ImportExport() {
     }
 
     const items = itemsData?.items || [];
-    
-    // Save to history before deleting
-    if (items.length > 0) {
-      const flatItems = flattenItems(items);
-      setHistory(prev => [...prev, flatItems]);
-    }
 
     // Delete all items sequentially to avoid race conditions
     const allItems = flattenItems(items);
     for (const item of allItems) {
       await deleteItem.mutateAsync(item.id);
-    }
-  };
-
-  const handleUndo = async () => {
-    if (history.length === 0) {
-      alert('No hay acciones para deshacer');
-      return;
-    }
-
-    const previousState = history[history.length - 1];
-    const newHistory = history.slice(0, -1);
-    setHistory(newHistory);
-    
-    // Import the previous state
-    try {
-      await importItems.mutateAsync({ items: previousState });
-      alert('Acción deshecha');
-    } catch (error) {
-      console.error('Error undoing:', error);
-      alert('Error al deshacer la acción');
-      // Restore history on error
-      setHistory([...newHistory, previousState]);
     }
   };
 
@@ -166,14 +131,6 @@ export default function ImportExport() {
         className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Borrar Todo
-      </button>
-
-      <button
-        onClick={handleUndo}
-        disabled={history.length === 0}
-        className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        Deshacer
       </button>
 
       <button
