@@ -24,13 +24,14 @@ interface ItemListProps {
   items: ItemResponse[];
   onAddSubitem: (parentId: string) => void;
   onItemDoubleClick?: (itemId: string) => void;
+  reorderMode?: boolean; // Whether reorder mode is active
 }
 
-export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: ItemListProps) {
+export default function ItemList({ items, onAddSubitem, onItemDoubleClick, reorderMode = false }: ItemListProps) {
   const updateItem = useUpdateItem();
   const [overItemId, setOverItemId] = useState<string | null>(null);
   const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
-  const [dragPosition, setDragPosition] = useState<{ itemId: string; isEdge: boolean; isAbove: boolean } | null>(null);
+  const [dragPosition, setDragPosition] = useState<{ itemId: string; isAbove: boolean } | null>(null);
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -53,7 +54,7 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
 
   const handleDragOver = (event: DragOverEvent) => {
     const { over, activatorEvent } = event;
-    if (over && activatorEvent && 'clientX' in activatorEvent) {
+    if (over && activatorEvent && 'clientY' in activatorEvent) {
       setOverItemId(over.id as string);
       
       // Get the container element with data-id
@@ -85,32 +86,22 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
       
       if (cardElement) {
         const rect = cardElement.getBoundingClientRect();
-        const mouseX = (activatorEvent as MouseEvent).clientX;
         const mouseY = (activatorEvent as MouseEvent).clientY;
-        const relativeX = mouseX - rect.left;
         const relativeY = mouseY - rect.top;
-        const width = rect.width;
         const height = rect.height;
-        const percentageX = (relativeX / width) * 100;
         const percentageY = (relativeY / height) * 100;
         
-        // Borde izquierdo (primeros 25%) o borde derecho (últimos 25%) → reordenar
-        // Medio (25% - 75%) → mover
-        const isEdge = percentageX < 25 || percentageX > 75;
-        
-        // Determine if mouse is above or below the center of the item
+        // Determine if mouse is above or below the center of the item (for reorder mode)
         const isAbove = percentageY < 50;
         
         setDragPosition({
           itemId: over.id as string,
-          isEdge,
           isAbove,
         });
       } else {
-        // If element not found, default to middle (move operation)
+        // If element not found, default
         setDragPosition({
           itemId: over.id as string,
-          isEdge: false,
           isAbove: false,
         });
       }
@@ -152,18 +143,16 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
       return;
     }
 
-    // Determine action based on drag position
-    const isEdge = dragPosition?.itemId === overItem.id && dragPosition.isEdge;
+    // Determine action based on reorder mode
     const isAbove = dragPosition?.itemId === overItem.id && dragPosition.isAbove;
     const activeParentId = findParentItemId(activeItem.id);
     const overParentId = findParentItemId(overItem.id);
     const sameLevel = activeParentId === overParentId;
 
-    // If dragging to edge (left or right border) AND same level, reorder
-    // If dragging to middle/center, move to the over item (make it a subitem)
-    // This works regardless of whether they're at the same level or not
-    if (isEdge && sameLevel) {
-      // Same level and edge (left or right border) - reorder
+    // If reorder mode is active AND same level, reorder
+    // Otherwise, always move to the over item (make it a subitem)
+    if (reorderMode && sameLevel) {
+      // Reorder mode and same level - reorder
       // Determine the correct order based on direction
       let newOrder: number;
       if (isAbove) {
@@ -181,9 +170,8 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
         },
       });
     } else {
-      // Middle/center - make it a subitem of the over item
+      // Default behavior or different level - make it a subitem of the over item
       // The backend will automatically create level 0 if it doesn't exist
-      // This works for same level or different levels
       updateItem.mutate({
         id: activeItem.id,
         data: {
@@ -230,11 +218,9 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
   const overItem = overItemId ? findItemById(items, overItemId) : null;
   const draggingItem = draggingItemId ? findItemById(items, draggingItemId) : null;
   
-  // Determine if it's a reorder based on position and level
-  const isReorder = draggingItem && overItem && draggingItem.id !== overItem.id && dragPosition
-    ? dragPosition.itemId === overItem.id 
-      && dragPosition.isEdge 
-      && findParentItemId(draggingItem.id) === findParentItemId(overItem.id)
+  // Determine if it's a reorder based on reorder mode and level
+  const isReorder = reorderMode && draggingItem && overItem && draggingItem.id !== overItem.id
+    ? findParentItemId(draggingItem.id) === findParentItemId(overItem.id)
     : false;
 
   return (
@@ -280,11 +266,9 @@ export default function ItemList({ items, onAddSubitem, onItemDoubleClick }: Ite
               const numbering = `${index + 1}`;
               const isOver = overItemId === item.id;
               const isDragging = draggingItemId === item.id;
-              // Check if this is a reorder operation (edge + same level)
-              const isReorderOperation = draggingItem && isOver && !isDragging && dragPosition
-                ? dragPosition.itemId === item.id
-                  && dragPosition.isEdge
-                  && findParentItemId(draggingItem.id) === findParentItemId(item.id)
+              // Check if this is a reorder operation (reorder mode + same level)
+              const isReorderOperation = reorderMode && draggingItem && isOver && !isDragging
+                ? findParentItemId(draggingItem.id) === findParentItemId(item.id)
                 : false;
               return (
                 <ItemComponent

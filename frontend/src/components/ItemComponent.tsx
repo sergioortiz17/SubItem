@@ -16,7 +16,7 @@ interface ItemComponentProps {
   overItemId?: string | null; // ID of item being dragged over (for recursive checking)
   draggingItemId?: string | null; // ID of item being dragged (for recursive checking)
   onDoubleClick?: (itemId: string) => void; // Handler for double click on item card
-  dragPosition?: { itemId: string; isEdge: boolean; isAbove: boolean } | null; // Current drag position info
+  dragPosition?: { itemId: string; isAbove: boolean } | null; // Current drag position info
   findParentItemId?: (itemId: string) => string | null; // Function to find parent item ID
   allItems?: ItemResponse[]; // All items for finding parent
 }
@@ -27,13 +27,8 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
   
-  // Calculate isReorder based on dragPosition if available
-  let isReorder = propIsReorder;
-  if (isDragOver && dragPosition && dragPosition.itemId === item.id && draggingItemId && findParentItemId) {
-    const draggingParentId = findParentItemId(draggingItemId);
-    const itemParentId = findParentItemId(item.id);
-    isReorder = dragPosition.isEdge && draggingParentId === itemParentId;
-  }
+  // Calculate isReorder based on prop (set by parent based on reorder mode)
+  const isReorder = propIsReorder;
   
   // Calculate these first so they're available in useEffect
   // Use item.subitems directly to ensure we're using the latest data
@@ -416,13 +411,8 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
               const baseNumbering = numbering ? `${numbering}.` : '';
               const subitemNumbering = `${baseNumbering}${subIndex + 1}`;
               const isSubitemOver = overItemId === subitem.id && draggingItemId !== subitem.id;
-              // Calculate isReorder for this subitem: same parent AND edge
-              let isSubitemReorder = false;
-              if (isSubitemOver && dragPosition && dragPosition.itemId === subitem.id && draggingItemId && findParentItemId) {
-                const draggingParentId = findParentItemId(draggingItemId);
-                const subitemParentId = findParentItemId(subitem.id);
-                isSubitemReorder = dragPosition.isEdge && draggingParentId === subitemParentId;
-              }
+              // Calculate isReorder for this subitem (propagate from parent)
+              const isSubitemReorder = isReorder && isSubitemOver;
               return (
                 <ItemComponent
                   key={`${subitem.id}-${subIndex}-${subitemsCount}-${subitemsKey}`}

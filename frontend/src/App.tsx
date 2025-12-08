@@ -14,6 +14,7 @@ function App() {
   const [debugPanelWidth, setDebugPanelWidth] = useState(320); // Default 320px (w-80)
   const [detailViewItemId, setDetailViewItemId] = useState<string | null>(null);
   const [showDebugTree, setShowDebugTree] = useState(true);
+  const [reorderMode, setReorderMode] = useState(false);
 
   const handleAddItem = () => {
     if (newItemTitle.trim()) {
@@ -73,6 +74,8 @@ function App() {
             item={detailViewItem}
             onBack={() => setDetailViewItemId(null)}
             onAddSubitem={handleAddSubitem}
+            reorderMode={reorderMode}
+            setReorderMode={setReorderMode}
           />
         </div>
 
@@ -100,6 +103,16 @@ function App() {
             <div className="flex items-center justify-between mb-6">
               <h1 className="text-3xl font-bold text-white">RoadMap SubItem</h1>
               <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setReorderMode(!reorderMode)}
+                  className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                    reorderMode
+                      ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                      : 'bg-slate-700 hover:bg-slate-600 text-white'
+                  }`}
+                >
+                  {reorderMode ? '✓ Re-order' : 'Re-order'}
+                </button>
                 <button
                   onClick={() => setShowDebugTree(!showDebugTree)}
                   className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors"
@@ -146,6 +159,7 @@ function App() {
               items={items}
               onAddSubitem={handleAddSubitem}
               onItemDoubleClick={setDetailViewItemId}
+              reorderMode={reorderMode}
             />
           )}
         </div>

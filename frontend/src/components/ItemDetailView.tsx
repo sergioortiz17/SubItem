@@ -5,9 +5,11 @@ interface ItemDetailViewProps {
   item: ItemResponse;
   onBack: () => void;
   onAddSubitem: (parentId: string) => void;
+  reorderMode?: boolean;
+  setReorderMode?: (value: boolean) => void;
 }
 
-export default function ItemDetailView({ item, onBack, onAddSubitem }: ItemDetailViewProps) {
+export default function ItemDetailView({ item, onBack, onAddSubitem, reorderMode = false, setReorderMode }: ItemDetailViewProps) {
   // Create a single-item array for ItemList component
   const singleItemArray: ItemResponse[] = [item];
 
@@ -43,11 +45,23 @@ export default function ItemDetailView({ item, onBack, onAddSubitem }: ItemDetai
                 <p className="text-slate-400">{item.description}</p>
               )}
             </div>
+            {setReorderMode && (
+              <button
+                onClick={() => setReorderMode(!reorderMode)}
+                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                  reorderMode
+                    ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                    : 'bg-slate-700 hover:bg-slate-600 text-white'
+                }`}
+              >
+                {reorderMode ? '✓ Re-order' : 'Re-order'}
+              </button>
+            )}
           </div>
         </div>
 
         {/* Item and its subitems */}
-        <ItemList items={singleItemArray} onAddSubitem={onAddSubitem} />
+        <ItemList items={singleItemArray} onAddSubitem={onAddSubitem} reorderMode={reorderMode} />
       </div>
     </div>
   );
