@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -23,6 +23,8 @@ interface DebugTreeProps {
   items: ItemResponse[];
   selectedItemId: string | null;
   onSelectItem: (itemId: string | null) => void;
+  width: number;
+  onWidthChange: (width: number) => void;
 }
 
 interface SortableItemProps {
@@ -30,6 +32,107 @@ interface SortableItemProps {
   level: number;
   selectedItemId: string | null;
   onSelectItem: (itemId: string | null) => void;
+}
+
+function TreeItem({ item, level, selectedItemId, onSelectItem, isLast, parentPath }: {
+  item: ItemResponse;
+  level: number;
+  selectedItemId: string | null;
+  onSelectItem: (itemId: string | null) => void;
+  isLast: boolean;
+  parentPath: boolean[];
+}) {
+  const isSelected = item.id === selectedItemId;
+  const hasChildren = item.subitems && item.subitems.length > 0;
+  const indent = level * 16;
+
+  return (
+    <div className="flex items-start">
+      {/* Tree lines */}
+      <div className="flex-shrink-0" style={{ width: `${indent}px` }}>
+        {level > 0 && (
+          <div className="relative h-full">
+            {/* Vertical line */}
+            {parentPath.slice(0, -1).map((_, idx) => (
+              <div
+                key={idx}
+                className="absolute border-l border-slate-600"
+                style={{
+                  left: `${idx * 16 + 8}px`,
+                  top: 0,
+                  bottom: 0,
+                  width: '1px',
+                }}
+              />
+            ))}
+            {/* Horizontal line */}
+            <div
+              className="absolute border-t border-slate-600"
+              style={{
+                left: `${(level - 1) * 16 + 8}px`,
+                top: '12px',
+                width: '8px',
+                height: '1px',
+              }}
+            />
+            {/* Vertical line continuation (if not last) */}
+            {!isLast && (
+              <div
+                className="absolute border-l border-slate-600"
+                style={{
+                  left: `${(level - 1) * 16 + 8}px`,
+                  top: '12px',
+                  bottom: 0,
+                  width: '1px',
+                }}
+              />
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Item content */}
+      <div className="flex-1 min-w-0">
+        <div
+          className={`px-2 py-1 rounded text-xs cursor-pointer transition-colors ${
+            isSelected
+              ? 'bg-blue-600 text-white'
+              : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+          }`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelectItem(isSelected ? null : item.id);
+          }}
+        >
+          <div className="flex items-center gap-2">
+            {hasChildren && (
+              <span className="text-slate-400 text-[10px]">▼</span>
+            )}
+            {!hasChildren && <span className="text-slate-500 text-[10px]">•</span>}
+            <span className="font-medium truncate">{item.title}</span>
+            <span className="ml-auto text-slate-400 text-[10px]">
+              ({item.subitems?.length || 0})
+            </span>
+          </div>
+        </div>
+        {hasChildren && (
+          <div className="mt-1">
+            {item.subitems!.map((subitem, index) => (
+              <TreeItem
+                key={subitem.id}
+                item={subitem}
+                level={level + 1}
+                selectedItemId={selectedItemId}
+                onSelectItem={onSelectItem}
+                isLast={index === item.subitems!.length - 1}
+                parentPath={[...parentPath, index === item.subitems!.length - 1]}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function SortableItem({ item, level, selectedItemId, onSelectItem }: SortableItemProps) {
@@ -95,14 +198,54 @@ function SortableItem({ item, level, selectedItemId, onSelectItem }: SortableIte
   );
 }
 
-export default function DebugTree({ items, selectedItemId, onSelectItem }: DebugTreeProps) {
+export default function DebugTree({ items, selectedItemId, onSelectItem, width, onWidthChange }: DebugTreeProps) {
   const updateItem = useUpdateItem();
   const [localItems, setLocalItems] = useState(items);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef<HTMLDivElement>(null);
 
   // Update local items when props change
   useEffect(() => {
     setLocalItems(items);
   }, [items]);
+
+  // Handle resize
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      
+      const newWidth = window.innerWidth - e.clientX;
+      const minWidth = 200;
+      const maxWidth = window.innerWidth * 0.8;
+      
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        onWidthChange(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing, onWidthChange]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -211,65 +354,102 @@ export default function DebugTree({ items, selectedItemId, onSelectItem }: Debug
     : null;
 
   return (
-    <div className="w-80 bg-slate-900 border-l border-slate-700 p-4 overflow-y-auto h-full">
-      <div className="mb-4">
-        <h2 className="text-lg font-bold text-white mb-2">Debug Tree</h2>
-        <button
-          onClick={() => onSelectItem(null)}
-          className="text-xs text-slate-400 hover:text-white mb-2"
-        >
-          Clear Selection
-        </button>
-      </div>
+    <>
+      {/* Resize handle */}
+      <div
+        ref={resizeRef}
+        onMouseDown={handleMouseDown}
+        className={`bg-slate-700 hover:bg-slate-600 cursor-col-resize transition-colors ${
+          isResizing ? 'bg-blue-500' : ''
+        }`}
+        style={{ width: '4px' }}
+      />
 
-      <div className="mb-4">
-        <h3 className="text-sm font-semibold text-slate-300 mb-2">Tree View (Drag & Drop)</h3>
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext items={allItemIds} strategy={verticalListSortingStrategy}>
-            <div className="max-h-64 overflow-y-auto">
-              {localItems.map((item) => (
-                <SortableItem
+      {/* Debug Tree Panel */}
+      <div
+        className="bg-slate-900 border-l border-slate-700 p-4 overflow-y-auto h-full flex flex-col"
+        style={{ width: `${width}px`, minWidth: '200px' }}
+      >
+        <div className="mb-4 flex-shrink-0">
+          <h2 className="text-lg font-bold text-white mb-2">Debug Tree</h2>
+          <button
+            onClick={() => onSelectItem(null)}
+            className="text-xs text-slate-400 hover:text-white mb-2"
+          >
+            Clear Selection
+          </button>
+        </div>
+
+        <div className="mb-4 flex-shrink-0">
+          <h3 className="text-sm font-semibold text-slate-300 mb-2">Tree View</h3>
+          <div className="max-h-96 overflow-y-auto bg-slate-800 rounded p-2">
+            {localItems.length === 0 ? (
+              <div className="text-xs text-slate-500 text-center py-4">No items</div>
+            ) : (
+              localItems.map((item, index) => (
+                <TreeItem
                   key={item.id}
                   item={item}
                   level={0}
                   selectedItemId={selectedItemId}
                   onSelectItem={onSelectItem}
+                  isLast={index === localItems.length - 1}
+                  parentPath={[index === localItems.length - 1]}
                 />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
-      </div>
-
-      {selectedItem && (
-        <div className="mb-4">
-          <h3 className="text-sm font-semibold text-slate-300 mb-2">
-            Selected: {selectedItem.title}
-          </h3>
-          <div className="max-h-96 overflow-y-auto">
-            {renderJSON(selectedItem)}
+              ))
+            )}
           </div>
         </div>
-      )}
 
-      <div className="mb-4">
-        <h3 className="text-sm font-semibold text-slate-300 mb-2">Raw JSON (from API)</h3>
-        <pre className="text-xs bg-slate-800 p-2 rounded border border-slate-700 overflow-x-auto max-h-64 overflow-y-auto">
-          {JSON.stringify(items, null, 2)}
-        </pre>
-      </div>
+        <div className="mb-4 flex-shrink-0">
+          <h3 className="text-sm font-semibold text-slate-300 mb-2">Drag & Drop</h3>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={allItemIds} strategy={verticalListSortingStrategy}>
+              <div className="max-h-48 overflow-y-auto bg-slate-800 rounded p-2">
+                {localItems.map((item) => (
+                  <SortableItem
+                    key={item.id}
+                    item={item}
+                    level={0}
+                    selectedItemId={selectedItemId}
+                    onSelectItem={onSelectItem}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        </div>
 
-      <div className="mb-4">
-        <h3 className="text-sm font-semibold text-slate-300 mb-2">Local State (optimistic)</h3>
-        <pre className="text-xs bg-slate-800 p-2 rounded border border-slate-700 overflow-x-auto max-h-64 overflow-y-auto">
-          {JSON.stringify(localItems, null, 2)}
-        </pre>
+        {selectedItem && (
+          <div className="mb-4 flex-shrink-0">
+            <h3 className="text-sm font-semibold text-slate-300 mb-2">
+              Selected: {selectedItem.title}
+            </h3>
+            <div className="max-h-64 overflow-y-auto bg-slate-800 rounded p-2">
+              {renderJSON(selectedItem)}
+            </div>
+          </div>
+        )}
+
+        <div className="mb-4 flex-1 min-h-0 flex flex-col">
+          <h3 className="text-sm font-semibold text-slate-300 mb-2 flex-shrink-0">Raw JSON (from API)</h3>
+          <pre className="text-xs bg-slate-800 p-2 rounded border border-slate-700 overflow-auto flex-1">
+            {JSON.stringify(items, null, 2)}
+          </pre>
+        </div>
+
+        <div className="mb-4 flex-1 min-h-0 flex flex-col">
+          <h3 className="text-sm font-semibold text-slate-300 mb-2 flex-shrink-0">Local State (optimistic)</h3>
+          <pre className="text-xs bg-slate-800 p-2 rounded border border-slate-700 overflow-auto flex-1">
+            {JSON.stringify(localItems, null, 2)}
+          </pre>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

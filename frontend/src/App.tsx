@@ -9,6 +9,7 @@ function App() {
   const createItem = useCreateItem();
   const [newItemTitle, setNewItemTitle] = useState('');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [debugPanelWidth, setDebugPanelWidth] = useState(320); // Default 320px (w-80)
 
   const handleAddItem = () => {
     if (newItemTitle.trim()) {
@@ -112,6 +113,8 @@ function App() {
         items={items}
         selectedItemId={selectedItemId}
         onSelectItem={setSelectedItemId}
+        width={debugPanelWidth}
+        onWidthChange={setDebugPanelWidth}
       />
     </div>
   );
