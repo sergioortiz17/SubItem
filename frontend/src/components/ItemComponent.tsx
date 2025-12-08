@@ -11,11 +11,14 @@ interface ItemComponentProps {
   level?: number;
   numbering?: string; // Hierarchical numbering like "1", "1.1", "1.2", etc.
   onAddSubitem: (parentId: string) => void;
+  isDragOver?: boolean; // Whether this item is being dragged over
+  overItemId?: string | null; // ID of item being dragged over (for recursive checking)
+  draggingItemId?: string | null; // ID of item being dragged (for recursive checking)
 }
 
 const MAX_DEPTH = 4; // Maximum depth of subitems
 
-export default function ItemComponent({ item, level = 0, numbering = '', onAddSubitem }: ItemComponentProps) {
+export default function ItemComponent({ item, level = 0, numbering = '', onAddSubitem, isDragOver = false, overItemId = null, draggingItemId = null }: ItemComponentProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
   
@@ -150,7 +153,11 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
     >
       {/* Main Task Card */}
       <div
-        className="bg-slate-800 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors"
+        className={`bg-slate-800 border rounded-lg p-4 transition-all ${
+          isDragOver
+            ? 'border-blue-500 border-2 shadow-lg shadow-blue-500/50 bg-blue-900/20'
+            : 'border-slate-700 hover:border-slate-600'
+        }`}
       >
         <div className="flex items-start gap-3">
           {/* Drag Handle */}
@@ -298,6 +305,7 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
               // Generate numbering for this subitem (e.g., "1.1", "1.2", "1.1.1")
               const baseNumbering = numbering ? `${numbering}.` : '';
               const subitemNumbering = `${baseNumbering}${subIndex + 1}`;
+              const isSubitemOver = overItemId === subitem.id && draggingItemId !== subitem.id;
               return (
                 <ItemComponent
                   key={`${subitem.id}-${subIndex}-${subitemsCount}-${subitemsKey}`}
@@ -305,6 +313,9 @@ export default function ItemComponent({ item, level = 0, numbering = '', onAddSu
                   level={level + 1}
                   numbering={subitemNumbering}
                   onAddSubitem={onAddSubitem}
+                  isDragOver={isSubitemOver}
+                  overItemId={overItemId}
+                  draggingItemId={draggingItemId}
                 />
               );
             })}

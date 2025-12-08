@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -6,6 +7,8 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
+  DragOverEvent,
+  DragStartEvent,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -24,6 +27,8 @@ interface ItemListProps {
 
 export default function ItemList({ items, onAddSubitem }: ItemListProps) {
   const updateItem = useUpdateItem();
+  const [overItemId, setOverItemId] = useState<string | null>(null);
+  const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
   
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -34,8 +39,25 @@ export default function ItemList({ items, onAddSubitem }: ItemListProps) {
 
   const allItemIds = flattenItems(items).map(item => item.id);
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setDraggingItemId(event.active.id as string);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { over } = event;
+    if (over) {
+      setOverItemId(over.id as string);
+    } else {
+      setOverItemId(null);
+    }
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+
+    // Reset drag state
+    setDraggingItemId(null);
+    setOverItemId(null);
 
     if (!over || active.id === over.id) {
       return;
@@ -85,34 +107,56 @@ export default function ItemList({ items, onAddSubitem }: ItemListProps) {
     return false;
   };
 
+  const overItem = overItemId ? findItemById(items, overItemId) : null;
+  const draggingItem = draggingItemId ? findItemById(items, draggingItemId) : null;
+
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-    >
-      <SortableContext items={allItemIds} strategy={verticalListSortingStrategy}>
-        <div className="space-y-2">
-          {items.map((item, index) => {
-            // Create a unique key that includes subitems count and IDs to force re-render when subitems change
-            const subitemsCount = item.subitems?.length || 0;
-            // Use sorted IDs to create a stable key based on subitems
-            const subitemsKey = item.subitems?.map(s => s.id).sort().join(',') || '';
-            // Generate numbering for root items (1, 2, 3, etc.)
-            const numbering = `${index + 1}`;
-            return (
-              <ItemComponent
-                key={`${item.id}-${index}-${subitemsCount}-${subitemsKey}`}
-                item={item}
-                level={0}
-                numbering={numbering}
-                onAddSubitem={onAddSubitem}
-              />
-            );
-          })}
+    <>
+      {/* Drag overlay message */}
+      {draggingItem && overItem && overItem.id !== draggingItem.id && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+          <span className="font-medium">Mover</span>
+          <span className="font-bold">"{draggingItem.title}"</span>
+          <span>a</span>
+          <span className="font-bold">"{overItem.title}"</span>
         </div>
-      </SortableContext>
-    </DndContext>
+      )}
+
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={allItemIds} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2">
+            {items.map((item, index) => {
+              // Create a unique key that includes subitems count and IDs to force re-render when subitems change
+              const subitemsCount = item.subitems?.length || 0;
+              // Use sorted IDs to create a stable key based on subitems
+              const subitemsKey = item.subitems?.map(s => s.id).sort().join(',') || '';
+              // Generate numbering for root items (1, 2, 3, etc.)
+              const numbering = `${index + 1}`;
+              const isOver = overItemId === item.id;
+              const isDragging = draggingItemId === item.id;
+              return (
+                <ItemComponent
+                  key={`${item.id}-${index}-${subitemsCount}-${subitemsKey}`}
+                  item={item}
+                  level={0}
+                  numbering={numbering}
+                  onAddSubitem={onAddSubitem}
+                  isDragOver={isOver && !isDragging}
+                  overItemId={overItemId}
+                  draggingItemId={draggingItemId}
+                />
+              );
+            })}
+          </div>
+        </SortableContext>
+      </DndContext>
+    </>
   );
 }
 
