@@ -2,6 +2,14 @@
 
 Aplicación moderna de gestión de tareas con subitems anidados infinitamente, construida con React + TypeScript (frontend) y Go + PostgreSQL (backend).
 
+## Ejecutar localmente : Ubicado en el root donde esta docker-compose.yml
+- docker compose down (solo si esta arriba el contenedor y vas a la url y no funciona)
+- docker compose build --no-cache
+- docker compose up -d
+
+
+
+
 ## 🚀 Características
 
 - ✅ **Tareas y subitems anidados infinitamente** - Estructura de árbol recursiva

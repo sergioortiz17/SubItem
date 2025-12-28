@@ -25,6 +25,7 @@ interface DebugTreeProps {
   onSelectItem: (itemId: string | null) => void;
   width: number;
   onWidthChange: (width: number) => void;
+  onClose?: () => void;
 }
 
 interface SortableItemProps {
@@ -198,7 +199,7 @@ function SortableItem({ item, level, selectedItemId, onSelectItem }: SortableIte
   );
 }
 
-export default function DebugTree({ items, selectedItemId, onSelectItem, width, onWidthChange }: DebugTreeProps) {
+export default function DebugTree({ items, selectedItemId, onSelectItem, width, onWidthChange, onClose }: DebugTreeProps) {
   const updateItem = useUpdateItem();
   const [localItems, setLocalItems] = useState(items);
   const [isResizing, setIsResizing] = useState(false);
@@ -371,7 +372,31 @@ export default function DebugTree({ items, selectedItemId, onSelectItem, width, 
         style={{ width: `${width}px`, minWidth: '200px' }}
       >
         <div className="mb-4 flex-shrink-0">
-          <h2 className="text-lg font-bold text-white mb-2">Debug Tree</h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-bold text-white">Debug Tree</h2>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="text-slate-400 hover:text-white transition-colors"
+                title="Cerrar panel"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
           <button
             onClick={() => onSelectItem(null)}
             className="text-xs text-slate-400 hover:text-white mb-2"

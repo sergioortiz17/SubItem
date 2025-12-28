@@ -90,6 +90,7 @@ function App() {
             onSelectItem={setSelectedItemId}
             width={debugPanelWidth}
             onWidthChange={setDebugPanelWidth}
+            onClose={() => setShowDebugTree(false)}
           />
         )}
       </div>
@@ -176,6 +177,7 @@ function App() {
           onSelectItem={setSelectedItemId}
           width={debugPanelWidth}
           onWidthChange={setDebugPanelWidth}
+          onClose={() => setShowDebugTree(false)}
         />
       )}
     </div>
