@@ -16,7 +16,16 @@ export default function ImportExport() {
     setIsExporting(true);
     try {
       const data = await itemRepository.export();
-      const dataStr = JSON.stringify(data, null, 2);
+      
+      // Include roadmap name from localStorage
+      const roadmapName = localStorage.getItem('roadmap-name') || 'RoadMap SubItem';
+      
+      const exportData = {
+        ...data,
+        roadmapName: roadmapName,
+      };
+      
+      const dataStr = JSON.stringify(exportData, null, 2);
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(dataBlob);
       const link = document.createElement('a');
@@ -44,7 +53,7 @@ export default function ImportExport() {
 
     try {
       const text = await file.text();
-      const data = JSON.parse(text) as { items: Item[] };
+      const data = JSON.parse(text) as { items: Item[]; roadmapName?: string };
       
       if (!data.items || !Array.isArray(data.items)) {
         throw new Error('Formato de archivo inválido');
@@ -53,6 +62,14 @@ export default function ImportExport() {
       if (window.confirm('¿Importar estos items? Esto reemplazará todos los items existentes.')) {
         importItems.mutate(data, {
           onSuccess: () => {
+            // Restore roadmap name if present in the imported data
+            if (data.roadmapName && data.roadmapName.trim()) {
+              localStorage.setItem('roadmap-name', data.roadmapName.trim());
+              // Dispatch event to update the roadmap name in App component
+              window.dispatchEvent(new CustomEvent('roadmap-name-updated', { 
+                detail: { name: data.roadmapName.trim() } 
+              }));
+            }
             alert('Items importados exitosamente');
           },
           onError: (error) => {

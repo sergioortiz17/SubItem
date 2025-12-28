@@ -36,6 +36,22 @@ function App() {
     }
   }, []);
 
+  // Listen for roadmap name updates from import
+  useEffect(() => {
+    const handleRoadmapNameUpdate = (event: CustomEvent) => {
+      const newName = event.detail?.name;
+      if (newName) {
+        setRoadmapName(newName);
+        setEditingRoadmapName(newName);
+      }
+    };
+
+    window.addEventListener('roadmap-name-updated', handleRoadmapNameUpdate as EventListener);
+    return () => {
+      window.removeEventListener('roadmap-name-updated', handleRoadmapNameUpdate as EventListener);
+    };
+  }, []);
+
   // Focus input when entering edit mode
   useEffect(() => {
     if (isEditingRoadmapName && roadmapNameInputRef.current) {
