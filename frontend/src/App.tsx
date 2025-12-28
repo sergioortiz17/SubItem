@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useItems, useCreateItem } from './infrastructure/di/container';
 import ItemList from './components/ItemList';
 import ImportExport from './components/ImportExport';
@@ -6,6 +6,8 @@ import DebugTree from './components/DebugTree';
 import ItemDetailView from './components/ItemDetailView';
 import { ItemTreeService } from './domain/services/ItemTreeService';
 import { ItemResponse } from './types/item';
+
+const ROADMAP_NAME_KEY = 'roadmap-name';
 
 function App() {
   const { data, isLoading, error } = useItems();
@@ -16,6 +18,47 @@ function App() {
   const [detailViewItemId, setDetailViewItemId] = useState<string | null>(null);
   const [showDebugTree, setShowDebugTree] = useState(true);
   const [reorderMode, setReorderMode] = useState(false);
+  const [roadmapName, setRoadmapName] = useState(() => {
+    // Initialize from localStorage or use default
+    const saved = localStorage.getItem(ROADMAP_NAME_KEY);
+    return saved || 'RoadMap SubItem';
+  });
+  const [isEditingRoadmapName, setIsEditingRoadmapName] = useState(false);
+  const [editingRoadmapName, setEditingRoadmapName] = useState(roadmapName);
+  const roadmapNameInputRef = useRef<HTMLInputElement>(null);
+
+  // Load roadmap name from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(ROADMAP_NAME_KEY);
+    if (saved) {
+      setRoadmapName(saved);
+      setEditingRoadmapName(saved);
+    }
+  }, []);
+
+  // Focus input when entering edit mode
+  useEffect(() => {
+    if (isEditingRoadmapName && roadmapNameInputRef.current) {
+      roadmapNameInputRef.current.focus();
+      roadmapNameInputRef.current.select();
+    }
+  }, [isEditingRoadmapName]);
+
+  const handleSaveRoadmapName = () => {
+    const trimmed = editingRoadmapName.trim();
+    if (trimmed) {
+      setRoadmapName(trimmed);
+      localStorage.setItem(ROADMAP_NAME_KEY, trimmed);
+    } else {
+      setEditingRoadmapName(roadmapName); // Reset if empty
+    }
+    setIsEditingRoadmapName(false);
+  };
+
+  const handleCancelEditRoadmapName = () => {
+    setEditingRoadmapName(roadmapName);
+    setIsEditingRoadmapName(false);
+  };
 
   const handleAddItem = () => {
     if (newItemTitle.trim()) {
@@ -105,7 +148,56 @@ function App() {
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-6">
-              <h1 className="text-3xl font-bold text-white">RoadMap SubItem</h1>
+              <div className="flex items-center gap-2 group">
+                {isEditingRoadmapName ? (
+                  <input
+                    ref={roadmapNameInputRef}
+                    type="text"
+                    value={editingRoadmapName}
+                    onChange={(e) => setEditingRoadmapName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSaveRoadmapName();
+                      } else if (e.key === 'Escape') {
+                        handleCancelEditRoadmapName();
+                      }
+                    }}
+                    onBlur={handleSaveRoadmapName}
+                    className="text-3xl font-bold text-white bg-transparent border-b-2 border-blue-500 focus:outline-none focus:border-blue-400"
+                    style={{ minWidth: '200px' }}
+                  />
+                ) : (
+                  <>
+                    <h1
+                      className="text-3xl font-bold text-white cursor-pointer hover:text-blue-400 transition-colors"
+                      onDoubleClick={() => setIsEditingRoadmapName(true)}
+                      title="Doble click para editar"
+                    >
+                      {roadmapName}
+                    </h1>
+                    <button
+                      onClick={() => setIsEditingRoadmapName(true)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-blue-400"
+                      title="Editar nombre"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                    </button>
+                  </>
+                )}
+              </div>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setReorderMode(!reorderMode)}
