@@ -9,6 +9,12 @@
 
 Aplicación moderna de gestión de tareas con subitems anidados infinitamente, construida con React + TypeScript (frontend) y Go + PostgreSQL (backend).
 
+## Vista de aplicacion:
+
+![SS App](ss_app.png)
+- Dejo un example para importar 
+- ./roadmap-devops-sergio-example.json
+
 ## Ejecutar localmente : Ubicado en el root donde esta docker-compose.yml
 - docker compose down (solo si esta arriba el contenedor y vas a la url y no funciona)
 - docker compose build --no-cache

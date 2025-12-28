@@ -1,0 +1,249 @@
+{
+  "items": [
+    {
+      "id": "e43f3b8b-70da-442d-87f5-3551bd690b73",
+      "title": "k9s",
+      "description": "",
+      "status": "todo",
+      "levelId": "b12bdaa0-d134-4637-a244-32ba3258d5a4",
+      "order": 0,
+      "createdAt": "2025-12-08T12:46:52.447744Z",
+      "updatedAt": "2025-12-08T12:46:52.447744Z"
+    },
+    {
+      "id": "e6b6c41a-d2bd-496f-b122-c910068cab30",
+      "title": "pod",
+      "description": "",
+      "status": "todo",
+      "levelId": "400d25b5-7b2b-4814-a763-0e6a033c0a6e",
+      "order": 0,
+      "createdAt": "2025-12-08T17:48:16.360744Z",
+      "updatedAt": "2025-12-08T17:48:16.360744Z"
+    },
+    {
+      "id": "74c074c2-a60a-424e-8116-b5b0ff514ec7",
+      "title": "git",
+      "description": "",
+      "status": "todo",
+      "levelId": null,
+      "order": 0,
+      "createdAt": "2025-12-08T12:43:29.369725Z",
+      "updatedAt": "2025-12-08T12:43:29.369725Z"
+    },
+    {
+      "id": "a4754790-4e84-41f7-b071-fbfdf5e7eb27",
+      "title": "git clone",
+      "description": "",
+      "status": "done",
+      "levelId": "34f79fa9-63a0-4e16-ac78-c0b4862cb0ce",
+      "order": 0,
+      "createdAt": "2025-12-08T12:43:43.203732Z",
+      "updatedAt": "2025-12-08T13:14:35.508906Z"
+    },
+    {
+      "id": "703947e0-bd0f-4f17-ac08-029b2994935c",
+      "title": "recursos",
+      "description": "",
+      "status": "todo",
+      "levelId": "5736a5d7-cdc0-4c87-8988-17edb2731710",
+      "order": 0,
+      "createdAt": "2025-12-08T12:43:51.306174Z",
+      "updatedAt": "2025-12-08T12:43:51.306174Z"
+    },
+    {
+      "id": "2882ddf7-ec27-4ab3-acef-7bb1d64b7868",
+      "title": "kubectl get pod -n <namespaces>",
+      "description": "",
+      "status": "todo",
+      "levelId": "5e139334-a854-47e6-9b6f-cb1a1725c0e8",
+      "order": 0,
+      "createdAt": "2025-12-08T12:44:20.459212Z",
+      "updatedAt": "2025-12-08T12:44:20.459212Z"
+    },
+    {
+      "id": "e17fbfd9-e996-42d8-a10e-6e0d0569e6e5",
+      "title": "git fecth",
+      "description": "",
+      "status": "done",
+      "levelId": "34f79fa9-63a0-4e16-ac78-c0b4862cb0ce",
+      "order": 1,
+      "createdAt": "2025-12-08T12:46:05.94539Z",
+      "updatedAt": "2025-12-08T13:14:33.84296Z"
+    },
+    {
+      "id": "b10016e1-41f7-4005-b603-bde884f35518",
+      "title": "k9s",
+      "description": "",
+      "status": "todo",
+      "levelId": null,
+      "order": 1,
+      "createdAt": "2025-12-08T12:43:34.071481Z",
+      "updatedAt": "2025-12-08T12:43:34.071481Z"
+    },
+    {
+      "id": "29faaaee-9f47-4c5b-b17f-50c42695672f",
+      "title": "nodos",
+      "description": "",
+      "status": "todo",
+      "levelId": "400d25b5-7b2b-4814-a763-0e6a033c0a6e",
+      "order": 1,
+      "createdAt": "2025-12-08T17:48:21.414554Z",
+      "updatedAt": "2025-12-08T17:48:21.414554Z"
+    },
+    {
+      "id": "b1912f93-e918-42e1-91ce-748c046886b4",
+      "title": "cmd",
+      "description": "",
+      "status": "todo",
+      "levelId": "5736a5d7-cdc0-4c87-8988-17edb2731710",
+      "order": 1,
+      "createdAt": "2025-12-08T12:43:55.955425Z",
+      "updatedAt": "2025-12-08T12:43:55.955425Z"
+    },
+    {
+      "id": "509ef311-d2a6-418a-91f0-b0b980995abe",
+      "title": "lens",
+      "description": "",
+      "status": "todo",
+      "levelId": "b12bdaa0-d134-4637-a244-32ba3258d5a4",
+      "order": 1,
+      "createdAt": "2025-12-08T13:12:17.354771Z",
+      "updatedAt": "2025-12-08T13:12:32.055122Z"
+    },
+    {
+      "id": "29bef9e0-f5e9-4feb-af14-13b796843512",
+      "title": "ui",
+      "description": "",
+      "status": "todo",
+      "levelId": "5736a5d7-cdc0-4c87-8988-17edb2731710",
+      "order": 2,
+      "createdAt": "2025-12-08T12:46:39.622713Z",
+      "updatedAt": "2025-12-08T13:03:27.032892Z"
+    },
+    {
+      "id": "fd742557-44e0-4ab8-bb76-4da246949104",
+      "title": "git add .",
+      "description": "",
+      "status": "done",
+      "levelId": "34f79fa9-63a0-4e16-ac78-c0b4862cb0ce",
+      "order": 2,
+      "createdAt": "2025-12-08T12:46:26.197859Z",
+      "updatedAt": "2025-12-08T13:14:31.924684Z"
+    },
+    {
+      "id": "9b64a904-0c3d-41d4-a04c-ee8cdcf9bcbb",
+      "title": "cmd",
+      "description": "",
+      "status": "todo",
+      "levelId": "cdd15218-8e4c-4c4e-ad4e-d32e0445336c",
+      "order": 7,
+      "createdAt": "2025-12-08T12:43:39.079498Z",
+      "updatedAt": "2025-12-08T17:47:43.818562Z"
+    },
+    {
+      "id": "7bf89cf1-5761-4027-b696-41a6d734f61d",
+      "title": "ahead-behind",
+      "description": "",
+      "status": "todo",
+      "levelId": "cdd15218-8e4c-4c4e-ad4e-d32e0445336c",
+      "order": 7,
+      "createdAt": "2025-12-08T12:45:47.147951Z",
+      "updatedAt": "2025-12-08T17:47:46.325239Z"
+    },
+    {
+      "id": "5d0edc96-bb24-4ba0-a698-619de41e29ce",
+      "title": "gitflow",
+      "description": "",
+      "status": "todo",
+      "levelId": "cdd15218-8e4c-4c4e-ad4e-d32e0445336c",
+      "order": 8,
+      "createdAt": "2025-12-08T16:31:26.969419Z",
+      "updatedAt": "2025-12-08T17:47:59.367093Z"
+    },
+    {
+      "id": "d589e0cf-1f52-4c74-a049-4c222d9859b2",
+      "title": "t1",
+      "description": "",
+      "status": "todo",
+      "levelId": "cdd15218-8e4c-4c4e-ad4e-d32e0445336c",
+      "order": 9,
+      "createdAt": "2025-12-08T17:15:18.769959Z",
+      "updatedAt": "2025-12-08T17:48:00.542351Z"
+    }
+  ],
+  "levels": [
+    {
+      "id": "cdd15218-8e4c-4c4e-ad4e-d32e0445336c",
+      "itemId": "74c074c2-a60a-424e-8116-b5b0ff514ec7",
+      "levelNum": 0,
+      "order": 0,
+      "createdAt": "2025-12-08T12:43:39.068614Z",
+      "updatedAt": "2025-12-08T12:43:39.068614Z"
+    },
+    {
+      "id": "34f79fa9-63a0-4e16-ac78-c0b4862cb0ce",
+      "itemId": "9b64a904-0c3d-41d4-a04c-ee8cdcf9bcbb",
+      "levelNum": 0,
+      "order": 0,
+      "createdAt": "2025-12-08T12:43:43.192784Z",
+      "updatedAt": "2025-12-08T12:43:43.192784Z"
+    },
+    {
+      "id": "5736a5d7-cdc0-4c87-8988-17edb2731710",
+      "itemId": "b10016e1-41f7-4005-b603-bde884f35518",
+      "levelNum": 0,
+      "order": 0,
+      "createdAt": "2025-12-08T12:43:51.29691Z",
+      "updatedAt": "2025-12-08T12:43:51.29691Z"
+    },
+    {
+      "id": "5e139334-a854-47e6-9b6f-cb1a1725c0e8",
+      "itemId": "b1912f93-e918-42e1-91ce-748c046886b4",
+      "levelNum": 0,
+      "order": 0,
+      "createdAt": "2025-12-08T12:44:20.450234Z",
+      "updatedAt": "2025-12-08T12:44:20.450234Z"
+    },
+    {
+      "id": "b12bdaa0-d134-4637-a244-32ba3258d5a4",
+      "itemId": "29bef9e0-f5e9-4feb-af14-13b796843512",
+      "levelNum": 0,
+      "order": 0,
+      "createdAt": "2025-12-08T12:46:52.44638Z",
+      "updatedAt": "2025-12-08T12:46:52.44638Z"
+    },
+    {
+      "id": "400d25b5-7b2b-4814-a763-0e6a033c0a6e",
+      "itemId": "703947e0-bd0f-4f17-ac08-029b2994935c",
+      "levelNum": 0,
+      "order": 0,
+      "createdAt": "2025-12-08T13:02:45.981318Z",
+      "updatedAt": "2025-12-08T13:02:45.981318Z"
+    },
+    {
+      "id": "5cce14a7-2460-46b1-9f97-2a1c82582a85",
+      "itemId": "7bf89cf1-5761-4027-b696-41a6d734f61d",
+      "levelNum": 0,
+      "order": 0,
+      "createdAt": "2025-12-08T13:03:01.881894Z",
+      "updatedAt": "2025-12-08T13:03:01.881894Z"
+    },
+    {
+      "id": "b0c0a134-5360-4f2d-95a8-ec5058179773",
+      "itemId": "a4754790-4e84-41f7-b071-fbfdf5e7eb27",
+      "levelNum": 0,
+      "order": 0,
+      "createdAt": "2025-12-08T16:35:56.906747Z",
+      "updatedAt": "2025-12-08T16:35:56.906747Z"
+    },
+    {
+      "id": "51d95a1e-f03c-4dfd-a2d8-ff3e480395f8",
+      "itemId": "5d0edc96-bb24-4ba0-a698-619de41e29ce",
+      "levelNum": 0,
+      "order": 0,
+      "createdAt": "2025-12-08T17:07:14.440344Z",
+      "updatedAt": "2025-12-08T17:07:14.440344Z"
+    }
+  ],
+  "roadmapName": "RoadMap DevOps"
+}
