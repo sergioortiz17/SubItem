@@ -21,7 +21,7 @@ interface ItemComponentProps {
   allItems?: ItemResponse[]; // All items for finding parent
 }
 
-const MAX_DEPTH = 4; // Maximum depth of subitems
+const MAX_DEPTH = 7; // Maximum depth of subitems
 
 export default function ItemComponent({ item, level = 0, numbering = '', onAddSubitem, isDragOver = false, isReorder: propIsReorder = false, overItemId = null, draggingItemId = null, onDoubleClick, dragPosition = null, findParentItemId, allItems = [] }: ItemComponentProps) {
   const [isEditing, setIsEditing] = useState(false);

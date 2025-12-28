@@ -16,6 +16,6 @@ export interface ItemTree extends ItemEntity {
 }
 
 // Domain constants
-export const MAX_DEPTH = 4;
+export const MAX_DEPTH = 7;
 export const DRAG_ACTIVATION_DISTANCE = 8;
 

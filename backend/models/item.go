@@ -40,7 +40,7 @@ type ItemResponse struct {
 // Items with LevelID = null are root tasks
 // Items with LevelID point to a level, and levels belong to items (which can be root items or subitems)
 // This function handles nested subitems recursively up to MAX_DEPTH levels
-const MAX_DEPTH = 4
+const MAX_DEPTH = 7
 
 func BuildTree(items []Item, levels []Level) []ItemResponse {
 	if len(items) == 0 {

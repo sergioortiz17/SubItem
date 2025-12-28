@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const MAX_DEPTH = 4 // Maximum depth of subitems
+const MAX_DEPTH = 7 // Maximum depth of subitems
 
 // calculateItemDepth calculates the maximum depth of an item in the tree
 // Returns the depth (0 = root, 1 = first level subitem, etc.)
@@ -175,7 +175,7 @@ func CreateItem(c *fiber.Ctx) error {
 			return c.Status(500).JSON(fiber.Map{"error": "Failed to calculate depth: " + err.Error()})
 		}
 		if depth >= MAX_DEPTH-1 {
-			return c.Status(400).JSON(fiber.Map{"error": "Maximum depth reached. Cannot create more than 4 levels of subitems"})
+			return c.Status(400).JSON(fiber.Map{"error": "Maximum depth reached. Cannot create more than 7 levels of subitems"})
 		}
 		
 		// Creating a subitem - find or create level 0 for this item
@@ -210,7 +210,7 @@ func CreateItem(c *fiber.Ctx) error {
 			return c.Status(500).JSON(fiber.Map{"error": "Failed to calculate depth: " + err.Error()})
 		}
 		if depth >= MAX_DEPTH-1 {
-			return c.Status(400).JSON(fiber.Map{"error": "Maximum depth reached. Cannot create more than 4 levels of subitems"})
+			return c.Status(400).JSON(fiber.Map{"error": "Maximum depth reached. Cannot create more than 7 levels of subitems"})
 		}
 		
 		item.LevelID = req.LevelID
