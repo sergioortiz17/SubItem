@@ -1,11 +1,20 @@
 # RoadMap SubItem
 
+![React](https://img.shields.io/badge/React-18.2.0-61DAFB?style=for-the-badge&logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.2.2-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Go](https://img.shields.io/badge/Go-1.21-00ADD8?style=for-the-badge&logo=go&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-316192?style=for-the-badge&logo=postgresql&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-5.0.8-646CFF?style=for-the-badge&logo=vite&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.3.6-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+
 Aplicación moderna de gestión de tareas con subitems anidados infinitamente, construida con React + TypeScript (frontend) y Go + PostgreSQL (backend).
 
 ## Ejecutar localmente : Ubicado en el root donde esta docker-compose.yml
 - docker compose down (solo si esta arriba el contenedor y vas a la url y no funciona)
 - docker compose build --no-cache
 - docker compose up -d
+
+- http://localhost:3000/
 
 
 
